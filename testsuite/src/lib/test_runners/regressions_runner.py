@@ -172,7 +172,8 @@ def get_test_status(test_suite, output, status_re):
         if output.returncode != 0:
             status = "SKIPPED" if output.returncode > 127 else "FAILED"
     else:
-        result = status_re.findall(output.stdout)[0]
+        result = status_re.findall(output.stdout)
+        result = result[0] if len(result) > 0 else None
         status = "FAILED" if result == "ERROR" else result
 
     return status
