@@ -523,6 +523,7 @@ static int _parse_nodename(void **dest, slurm_parser_enum_t type,
 		{"RealMemory", S_P_UINT64},
 		{"Reason", S_P_STRING},
 		{"RestrictedCoresPerGPU", S_P_UINT16},
+		{"RestrictedMemPerGPU", S_P_UINT16},
 		{"Sockets", S_P_UINT16},
 		{"SocketsPerBoard", S_P_UINT16},
 		{"State", S_P_STRING},
@@ -650,6 +651,11 @@ static int _parse_nodename(void **dest, slurm_parser_enum_t type,
 				    "RestrictedCoresPerGPU", tbl))
 			s_p_get_uint16(&n->res_cores_per_gpu,
 				       "RestrictedCoresPerGPU", dflt);
+
+		if (!s_p_get_uint16(&n->res_cores_per_gpu,
+				    "RestrictedMemPerGPU", tbl))
+			s_p_get_uint16(&n->res_cores_per_gpu,
+				       "RestrictedMemPerGPU", dflt);
 
 		if (!s_p_get_uint16(&n->tot_sockets, "Sockets", tbl) &&
 		    !s_p_get_uint16(&n->tot_sockets, "Sockets", dflt)) {
