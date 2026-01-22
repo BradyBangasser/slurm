@@ -1701,6 +1701,7 @@ _unpack_node_info_members(node_info_t * node, buf_t *buffer,
 		safe_unpack64(&node->free_mem, buffer);
 		safe_unpack32(&node->weight, buffer);
 		safe_unpack16(&node->res_cores_per_gpu, buffer);
+		safe_unpack64(&node->res_mem_per_gpu, buffer);
 		safe_unpack32(&node->reason_uid, buffer);
 
 		safe_unpack_time(&node->boot_time, buffer);
@@ -1768,6 +1769,7 @@ _unpack_node_info_members(node_info_t * node, buf_t *buffer,
 		safe_unpack64(&node->free_mem, buffer);
 		safe_unpack32(&node->weight, buffer);
 		safe_unpack16(&node->res_cores_per_gpu, buffer);
+		safe_unpack64(&node->res_mem_per_gpu, buffer);
 		safe_unpack32(&node->reason_uid, buffer);
 
 		safe_unpack_time(&node->boot_time, buffer);
@@ -1833,6 +1835,7 @@ _unpack_node_info_members(node_info_t * node, buf_t *buffer,
 		safe_unpack64(&node->free_mem, buffer);
 		safe_unpack32(&node->weight, buffer);
 		safe_unpack16(&node->res_cores_per_gpu, buffer);
+		safe_unpack64(&node->res_mem_per_gpu, buffer);
 		safe_unpack32(&node->reason_uid, buffer);
 
 		safe_unpack_time(&node->boot_time, buffer);
