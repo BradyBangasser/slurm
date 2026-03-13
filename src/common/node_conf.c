@@ -294,6 +294,7 @@ extern config_record_t *config_record_from_conf_node(
 	config_ptr->nodes = xstrdup(conf_node->nodenames);
 	config_ptr->real_memory = conf_node->real_memory;
 	config_ptr->res_cores_per_gpu = conf_node->res_cores_per_gpu;
+	config_ptr->res_mem_per_gpu = conf_node->res_mem_per_gpu;
 	config_ptr->threads = conf_node->threads;
 	config_ptr->tmp_disk = conf_node->tmp_disk;
 	config_ptr->topology_str = xstrdup(conf_node->topology_str);
@@ -700,6 +701,7 @@ static void _init_node_record(node_record_t *node_ptr,
 	node_ptr->mem_spec_limit = config_ptr->mem_spec_limit;
 	node_ptr->real_memory = config_ptr->real_memory;
 	node_ptr->res_cores_per_gpu = config_ptr->res_cores_per_gpu;
+	node_ptr->res_mem_per_gpu = config_ptr->res_mem_per_gpu;
 	node_ptr->threads = config_ptr->threads;
 	node_ptr->tmp_disk = config_ptr->tmp_disk;
 	node_ptr->tot_sockets = config_ptr->tot_sockets;
@@ -1670,6 +1672,7 @@ static void _node_record_pack(void *in, uint16_t protocol_version,
 		pack16(object->threads, buffer);
 		pack64(object->real_memory, buffer);
 		pack16(object->res_cores_per_gpu, buffer);
+		pack16(object->res_mem_per_gpu, buffer);
 		pack_bit_str_hex(object->gpu_spec_bitmap, buffer);
 		pack32(object->tmp_disk, buffer);
 		packstr(object->topology_str, buffer);
@@ -1724,6 +1727,7 @@ static void _node_record_pack(void *in, uint16_t protocol_version,
 		pack16(object->threads, buffer);
 		pack64(object->real_memory, buffer);
 		pack16(object->res_cores_per_gpu, buffer);
+		pack16(object->res_mem_per_gpu, buffer);
 		pack_bit_str_hex(object->gpu_spec_bitmap, buffer);
 		pack32(object->tmp_disk, buffer);
 		packstr(object->topology_str, buffer);
@@ -1771,6 +1775,7 @@ static void _node_record_pack(void *in, uint16_t protocol_version,
 		pack16(object->threads, buffer);
 		pack64(object->real_memory, buffer);
 		pack16(object->res_cores_per_gpu, buffer);
+		pack16(object->res_mem_per_gpu, buffer);
 		pack_bit_str_hex(object->gpu_spec_bitmap, buffer);
 		pack32(object->tmp_disk, buffer);
 		pack32(object->reason_uid, buffer);
@@ -1838,6 +1843,7 @@ extern int node_record_unpack(void **out,
 		safe_unpack16(&object->threads, buffer);
 		safe_unpack64(&object->real_memory, buffer);
 		safe_unpack16(&object->res_cores_per_gpu, buffer);
+		safe_unpack16(&object->res_mem_per_gpu, buffer);
 		unpack_bit_str_hex(&object->gpu_spec_bitmap, buffer);
 		safe_unpack32(&object->tmp_disk, buffer);
 		safe_unpackstr(&object->topology_str, buffer);
@@ -1887,6 +1893,7 @@ extern int node_record_unpack(void **out,
 		safe_unpack16(&object->threads, buffer);
 		safe_unpack64(&object->real_memory, buffer);
 		safe_unpack16(&object->res_cores_per_gpu, buffer);
+		safe_unpack16(&object->res_mem_per_gpu, buffer);
 		unpack_bit_str_hex(&object->gpu_spec_bitmap, buffer);
 		safe_unpack32(&object->tmp_disk, buffer);
 		safe_unpackstr(&object->topology_str, buffer);
@@ -1932,6 +1939,7 @@ extern int node_record_unpack(void **out,
 		safe_unpack16(&object->threads, buffer);
 		safe_unpack64(&object->real_memory, buffer);
 		safe_unpack16(&object->res_cores_per_gpu, buffer);
+		safe_unpack16(&object->res_mem_per_gpu, buffer);
 		unpack_bit_str_hex(&object->gpu_spec_bitmap, buffer);
 		safe_unpack32(&object->tmp_disk, buffer);
 		safe_unpack32(&object->reason_uid, buffer);
@@ -1982,6 +1990,7 @@ extern config_record_t *config_record_from_node_record(node_record_t *node_ptr)
 	config_ptr->nodes = xstrdup(node_ptr->name);
 	config_ptr->real_memory = node_ptr->real_memory;
 	config_ptr->res_cores_per_gpu = node_ptr->res_cores_per_gpu;
+	config_ptr->res_mem_per_gpu = node_ptr->res_mem_per_gpu;
 	config_ptr->threads = node_ptr->threads;
 	config_ptr->tmp_disk = node_ptr->tmp_disk;
 	config_ptr->topology_str = xstrdup(node_ptr->topology_str);

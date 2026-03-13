@@ -7511,6 +7511,7 @@ static const parser_t PARSER_ARRAY(NODE)[] = {
 	add_parse(UINT16, port, "port", "TCP port number of the slurmd"),
 	add_parse(UINT64, real_memory, "real_memory", "Total memory in MB on the node"),
 	add_parse(UINT16, res_cores_per_gpu, "res_cores_per_gpu", "Number of CPU cores per GPU restricted to GPU jobs"),
+	add_parse(UINT64, res_mem_per_gpu, "res_mem_per_gpu", "Amount of Memory Required per GPU to GPU Jobs"),
 	add_parse(STRING, comment, "comment", "Arbitrary comment"),
 	add_parse(STRING, reason, "reason", "Describes why the node is in a \"DOWN\", \"DRAINED\", \"DRAINING\", \"FAILING\" or \"FAIL\" state"),
 	add_parse(TIMESTAMP_NO_VAL, reason_time, "reason_changed_at", "When the reason changed (UNIX timestamp)"),

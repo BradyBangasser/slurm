@@ -75,6 +75,8 @@ typedef struct {
 	uint64_t real_memory;	/* MB real memory on the node */
 	uint16_t res_cores_per_gpu; /* number of cores per GPU to allow
 				     * to only GPU jobs */
+	uint64_t res_mem_per_gpu; /* Amount of memory per GPU to allow
+				     * to only GPU jobs */
 	uint16_t threads;	/* number of threads per core */
 	uint32_t tmp_disk;	/* MB total storage in TMP_FS file system */
 	uint16_t tot_sockets;	/* number of sockets per node */
@@ -177,6 +179,8 @@ struct node_record {
 	uint32_t reason_uid;		/* User that set the reason, ignore if
 					 * no reason is set. */
 	uint16_t res_cores_per_gpu;	/* number of cores per GPU to allow to
+					 * only GPU jobs */
+	uint64_t res_mem_per_gpu;	/* number of cores per GPU to allow to
 					 * only GPU jobs */
 	time_t resume_after;		/* automatically resume DOWN or DRAINED
 					 * node at this point in time */

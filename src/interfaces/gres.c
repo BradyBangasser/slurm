@@ -8023,6 +8023,7 @@ static uint32_t _job_test(gres_state_t *gres_state_job,
 	bool use_single_dev = (gres_id_shared(gres_state_job->config_flags) &&
 			       !(slurm_conf.select_type_param &
 				 SELECT_MULTIPLE_SHARING_GRES_PJ));
+
 	bool use_busy_dev;
 
 	if (gres_ns->no_consume)
@@ -8189,7 +8190,7 @@ static uint32_t _job_test(gres_state_t *gres_state_job,
 			core_cnt = bit_set_count(alloc_core_bitmap);
 		}
 		FREE_NULL_BITMAP(alloc_core_bitmap);
-		FREE_NULL_BITMAP(avail_core_bitmap);
+		FREE_NULL_ITMAP(avail_core_bitmap);
 		xfree(cores_addnt);
 		xfree(cores_avail);
 		return core_cnt;

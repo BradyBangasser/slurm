@@ -1,0 +1,58 @@
+./src/plugins/select/cons_tres/gres_select_filter.c:	uint32_t res_cores_per_gpu =
+./src/plugins/select/cons_tres/gres_select_filter.c:		node_record_table_ptr[args->node_inx]->res_cores_per_gpu;
+./src/plugins/select/cons_tres/gres_select_filter.c:	if (!res_cores_per_gpu)
+./src/plugins/select/cons_tres/gres_select_filter.c:				res_cores_per_gpu);
+./src/plugins/select/cons_tres/gres_sock_list.c:	uint32_t res_cores_per_gpu;
+./src/plugins/select/cons_tres/gres_sock_list.c:	uint32_t res_cores_per_gpu = create_args->res_cores_per_gpu;
+./src/plugins/select/cons_tres/gres_sock_list.c:		    !res_cores_per_gpu) {
+./src/plugins/select/cons_tres/gres_sock_list.c:				   uint32_t res_cores_per_gpu,
+./src/plugins/select/cons_tres/gres_sock_list.c:	int *picked_cores = xcalloc(res_cores_per_gpu, sizeof(int));
+./src/plugins/select/cons_tres/gres_sock_list.c:				 * Need to pick in groups of res_cores_per_gpu
+./src/plugins/select/cons_tres/gres_sock_list.c:					    res_cores_per_gpu,
+./src/plugins/select/cons_tres/gres_sock_list.c:				c = picked_cores[res_cores_per_gpu - 1] -
+./src/plugins/select/cons_tres/gres_sock_list.c:				for (int j = 0; j < res_cores_per_gpu; j++) {
+./src/plugins/select/cons_tres/gres_sock_list.c:			       args->res_cores_per_gpu, args->sockets,
+./src/plugins/select/cons_tres/gres_sock_list.c:		.res_cores_per_gpu = create_args->res_cores_per_gpu,
+./src/plugins/select/cons_tres/gres_sock_list.c:	    !create_args->res_cores_per_gpu)
+./src/plugins/select/cons_tres/gres_sock_list.h:	uint32_t res_cores_per_gpu; /* IN - number of cores reserved for each
+./src/plugins/select/cons_tres/job_test.c:		.res_cores_per_gpu = node_ptr->res_cores_per_gpu,
+./src/plugins/topology/common/eval_nodes.c:			      uint16_t res_cores_per_gpu,
+./src/plugins/topology/common/eval_nodes.c:		max_res_cores = max_gres * res_cores_per_gpu;
+./src/plugins/topology/common/eval_nodes.c:				max_res_cores = max_gres * res_cores_per_gpu;
+./src/plugins/topology/common/eval_nodes.c:	uint16_t res_cores_per_gpu =  node_ptr->res_cores_per_gpu;
+./src/plugins/topology/common/eval_nodes.c:		_reduce_res_cores(topo_eval, &maxtasks, res_cores_per_gpu,
+./src/plugins/topology/common/eval_nodes.c:			node_ptr->res_cores_per_gpu,
+./src/plugins/topology/common/eval_nodes.c:			.res_cores_per_gpu = node_ptr->res_cores_per_gpu,
+./src/plugins/topology/common/gres_filter.c:	 * min_core_cnt partial res_cores_per_gpu might be left.
+./src/plugins/topology/common/gres_filter.c:	    args->res_cores_per_gpu && gres_js->res_gpu_cores &&
+./src/plugins/topology/common/gres_filter.c:		max_res_cores = cnt_avail_total * args->res_cores_per_gpu;
+./src/plugins/topology/common/gres_filter.c:					args->res_cores_per_gpu;
+./src/plugins/topology/common/gres_filter.h:	uint16_t res_cores_per_gpu;
+./src/plugins/topology/common/gres_sched.c:	uint16_t res_cores_per_gpu; /* Number of restricted cores per gpu */
+./src/plugins/topology/common/gres_sched.c:					   uint16_t res_cores_per_gpu,
+./src/plugins/topology/common/gres_sched.c:	max_res_cores = *gres_limit * res_cores_per_gpu;
+./src/plugins/topology/common/gres_sched.c:				max_res_cores = *gres_limit * res_cores_per_gpu;
+./src/plugins/topology/common/gres_sched.c:	    args->res_cores_per_gpu) {
+./src/plugins/topology/common/gres_sched.c:			args->res_cores_per_gpu, args->sockets,
+./src/plugins/topology/common/gres_sched.c: * IN res_cores_per_gpu - Number of restricted cores per gpu
+./src/plugins/topology/common/gres_sched.c:			   uint16_t res_cores_per_gpu,
+./src/plugins/topology/common/gres_sched.c:		.res_cores_per_gpu = res_cores_per_gpu,
+./src/plugins/topology/common/gres_sched.h: * IN res_cores_per_gpu - Number of restricted cores per gpu
+./src/plugins/topology/common/gres_sched.h:			   uint16_t res_cores_per_gpu,
+./src/slurmctld/node_mgr.c:					node_ptr->res_cores_per_gpu =
+./src/slurmctld/node_mgr.c:						res_cores_per_gpu;
+./src/slurmctld/node_mgr.c:			node_ptr->res_cores_per_gpu =
+./src/slurmctld/node_mgr.c:				node_state_rec->res_cores_per_gpu;
+./src/slurmctld/node_mgr.c:	    (c1->res_cores_per_gpu == c2->res_cores_per_gpu) &&
+./src/slurmctld/node_mgr.c:		pack16(dump_node_ptr->res_cores_per_gpu, buffer);
+./src/slurmctld/node_mgr.c:		pack16(dump_node_ptr->res_cores_per_gpu, buffer);
+./src/slurmctld/node_mgr.c:		pack16(dump_node_ptr->res_cores_per_gpu, buffer);
+./src/slurmctld/node_mgr.c:	new_config_ptr->res_cores_per_gpu = config_ptr->res_cores_per_gpu;
+./src/slurmctld/node_mgr.c:	uint32_t res_cnt = node_ptr->res_cores_per_gpu;
+./src/slurmctld/node_mgr.c:	if (node_ptr->res_cores_per_gpu) {
+./src/sview/node_info.c:	convert_num_unit((float)node_ptr->res_cores_per_gpu,
+./src/sview/node_info.c:			   node_ptr->res_cores_per_gpu,
+./testsuite/python/data/openapi_spec_v41.json:          "res_cores_per_gpu": {
+./testsuite/python/data/openapi_spec_v42.json:          "res_cores_per_gpu": {
+./testsuite/python/data/openapi_spec_v43.json:          "res_cores_per_gpu": {
+./testsuite/python/data/openapi_spec_v44.json:          "res_cores_per_gpu": {
