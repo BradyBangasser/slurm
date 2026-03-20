@@ -12,5 +12,3 @@ services:
       - .:/slurm-src
       # Mount a specific folder for your configuration files
       - ./slurm-conf:/etc/slurm
-    command: >
-      /bin/bash -c "sudo -u munge /usr/sbin/munged && tail -f /dev/null"

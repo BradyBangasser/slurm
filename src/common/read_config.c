@@ -662,9 +662,9 @@ static int _parse_nodename(void **dest, slurm_parser_enum_t type,
 				       "RestrictedCoresPerGPU", dflt);
 
 		if (!s_p_get_uint64(&n->res_mem_per_gpu,
-				    "RestrictedMemPerGPU", tbl))
+				    "RestrictedMemoryPerGPU", tbl))
 			s_p_get_uint64(&n->res_mem_per_gpu,
-				       "RestrictedMemPerGPU", dflt);
+				       "RestrictedMemoryPerGPU", dflt);
 
 		if (!s_p_get_uint16(&n->tot_sockets, "Sockets", tbl) &&
 		    !s_p_get_uint16(&n->tot_sockets, "Sockets", dflt)) {

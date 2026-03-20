@@ -8026,6 +8026,8 @@ static uint32_t _job_test(gres_state_t *gres_state_job,
 
 	bool use_busy_dev;
 
+  info("MYPRINT: %s\n", gres_name);
+
 	if (gres_ns->no_consume)
 		use_total_gres = true;
 
@@ -8190,7 +8192,7 @@ static uint32_t _job_test(gres_state_t *gres_state_job,
 			core_cnt = bit_set_count(alloc_core_bitmap);
 		}
 		FREE_NULL_BITMAP(alloc_core_bitmap);
-		FREE_NULL_ITMAP(avail_core_bitmap);
+		FREE_NULL_BITMAP(avail_core_bitmap);
 		xfree(cores_addnt);
 		xfree(cores_avail);
 		return core_cnt;
