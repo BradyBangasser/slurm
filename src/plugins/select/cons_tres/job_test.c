@@ -506,6 +506,7 @@ static avail_res_t *_can_job_run_on_node(job_record_t *job_ptr,
 					 resv_exc_t *resv_exc_ptr)
 {
 	uint16_t cpus = 0;
+  uint64_t used_gpus = 0;
 	uint64_t avail_mem = NO_VAL64, req_mem;
 	int cpu_alloc_size, i, rc;
 	node_record_t *node_ptr = node_record_table_ptr[node_i];
@@ -608,6 +609,14 @@ static avail_res_t *_can_job_run_on_node(job_record_t *job_ptr,
 		_free_avail_res(avail_res);
 		return NULL;
 	}
+
+  if (avail_res_array[i] && avail_res_array[i]->gres_list) {
+      used_gpus =
+          gres_select_util_get_gres_cnt(
+              avail_res_array[i]->gres_list, "gpu");
+  }
+
+  info("%d", used_gpus);
 
 	if (cr_type & SELECT_MEMORY) {
 		avail_mem = node_ptr->real_memory - node_ptr->mem_spec_limit;
