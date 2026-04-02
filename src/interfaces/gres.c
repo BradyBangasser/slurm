@@ -2194,7 +2194,7 @@ static void _set_file_subset(gres_slurmd_conf_t *gres_slurmd_conf,
 
 	/* Remove all but the first entries */
 	for (int i = old_count; i > new_count; --i) {
-		hostlist_drop(hl);
+		free(hostlist_pop(hl));
 	}
 
 	debug3("%s: Truncating %s:%s File from (%ld) %s", __func__,
@@ -4263,6 +4263,10 @@ static int _node_config_validate(node_record_t *node_ptr,
 		(void) list_for_each(gres_conf_list, _foreach_rebuild_topo,
 				     &rebuild_topo);
 		rc = rebuild_topo.rc;
+
+		if (rc)
+			gres_ns->topo_cnt = rebuild_topo.topo_cnt;
+
 		has_file = rebuild_topo.has_file;
 
 		if (rebuild_topo.cpu_config_err) {
@@ -8023,10 +8027,9 @@ static uint32_t _job_test(gres_state_t *gres_state_job,
 	bool use_single_dev = (gres_id_shared(gres_state_job->config_flags) &&
 			       !(slurm_conf.select_type_param &
 				 SELECT_MULTIPLE_SHARING_GRES_PJ));
-
 	bool use_busy_dev;
 
-  info("MYPRINT: %s\n", gres_name);
+	info("GRES_NAME: %s\n", gres_name);
 
 	if (gres_ns->no_consume)
 		use_total_gres = true;

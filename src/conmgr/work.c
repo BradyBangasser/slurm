@@ -54,7 +54,6 @@ typedef struct {
 	int magic; /* MAGIC_LOG_WORK_ARGS */
 	const char *type;
 	int index;
-	probe_log_t *log;
 } log_work_args_t;
 
 static struct {
@@ -262,30 +261,30 @@ static work_t *_on_con_work_complete(conmgr_fd_t *con, work_t *work)
 
 static work_t *_run_work(work_t *work)
 {
+	conmgr_fd_t *con = NULL;
 	work_t *next = NULL;
-	conmgr_callback_args_t args = {
-		.status = work->status,
-	};
 
 	xassert(work->magic == MAGIC_WORK);
 
 	if (work->ref) {
-		CONMGR_CON_LINK(work->ref, args.ref);
-		xassert(args.ref->magic == MAGIC_CON_MGR_FD_REF);
-		args.con = fd_get_ref(work->ref);
-		xassert(args.con->magic == MAGIC_CON_MGR_FD);
+		con = fd_get_ref(work->ref);
+		xassert(con->magic == MAGIC_CON_MGR_FD);
 	}
 
 	_log_work(work, __func__, "BEGIN");
 
-	work->callback.func(args, work->callback.arg);
+	work->callback.func(
+		(conmgr_callback_args_t) {
+			.con = con,
+			.status = work->status,
+		},
+		work->callback.arg);
 
 	_log_work(work, __func__, "END");
 
-	if (args.con)
-		next = _on_con_work_complete(args.con, work);
+	if (con)
+		next = _on_con_work_complete(con, work);
 
-	CONMGR_CON_UNLINK(args.ref);
 	work->magic = ~MAGIC_WORK;
 	xfree(work);
 
@@ -446,7 +445,7 @@ extern void add_work(bool locked, conmgr_fd_t *con, conmgr_callback_t callback,
 		slurm_mutex_lock(&mgr.mutex);
 
 	if (con)
-		fd_new_ref(con, &work->ref);
+		work->ref = fd_new_ref(con);
 
 	work_mask_depend(work, depend_mask);
 
@@ -504,7 +503,6 @@ static int _foreach_log_work(void *x, void *arg)
 {
 	const work_t *work = x;
 	log_work_args_t *args = arg;
-	probe_log_t *log = args->log;
 	char str[PRINTF_WORK_CHARS];
 
 	xassert(args->magic == MAGIC_LOG_WORK_ARGS);
@@ -512,24 +510,22 @@ static int _foreach_log_work(void *x, void *arg)
 
 	printf_work(work, str, sizeof(str), true);
 
-	probe_log(log, "%s[%d]: %s", args->type, args->index, str);
+	info("%s[%d]: %s", args->type, args->index, str);
 
 	args->index++;
 
 	return SLURM_SUCCESS;
 }
 
-/* Caller must hold mgr.mutex lock */
-static void _probe_verbose(probe_log_t *log)
+extern void conmgr_log_work(void)
 {
 	log_work_args_t args = {
 		.magic = MAGIC_LOG_WORK_ARGS,
 		.type = "delayed_work",
-		.log = log,
 	};
 
-	probe_log(log, "work queues: work:%d delayed_work:%d",
-		  list_count(mgr.work), list_count(mgr.delayed_work));
+	info("work queues: work:%d delayed_work:%d",
+	     list_count(mgr.work), list_count(mgr.delayed_work));
 
 	(void) list_for_each_ro(mgr.delayed_work, _foreach_log_work, &args);
 
@@ -537,25 +533,4 @@ static void _probe_verbose(probe_log_t *log)
 	args.type = "work";
 
 	(void) list_for_each_ro(mgr.work, _foreach_log_work, &args);
-}
-
-extern probe_status_t probe_work(probe_log_t *log)
-{
-	probe_status_t status = PROBE_RC_UNKNOWN;
-
-	slurm_mutex_lock(&mgr.mutex);
-
-	if (log)
-		_probe_verbose(log);
-
-	if (!mgr.initialized)
-		status = PROBE_RC_UNKNOWN;
-	else if (!mgr.work || !mgr.delayed_work)
-		status = PROBE_RC_DOWN;
-	else
-		status = PROBE_RC_READY;
-
-	slurm_mutex_unlock(&mgr.mutex);
-
-	return status;
 }

@@ -124,7 +124,6 @@ static const char *select_node_bitmap_tags[] = {
 	"SELECT_ONL_RSVD", "SELECT_ALL_RSVD", NULL
 };
 
-uint32_t validate_resv_cnt = 0;
 time_t    last_resv_update = (time_t) 0;
 list_t *resv_list = NULL;
 static list_t *magnetic_resv_list = NULL;
@@ -419,6 +418,10 @@ static bitstr_t *_resv_select(resv_desc_msg_t *resv_desc_ptr,
 	job_record_t *job_ptr;
 	resv_exc_t resv_exc = { 0 };
 	int rc;
+	will_run_data_t will_run_data = {
+		.start = resv_desc_ptr->start_time,
+		.end = resv_desc_ptr->end_time,
+	};
 
 	xassert(avail_node_bitmap);
 	xassert(resv_desc_ptr);
@@ -439,11 +442,12 @@ static bitstr_t *_resv_select(resv_desc_msg_t *resv_desc_ptr,
 		job_ptr->details->max_nodes,
 		SELECT_MODE_WILL_RUN, NULL, NULL,
 		&resv_exc,
-		NULL);
+		&will_run_data);
 
 	free_core_array(&resv_exc.exc_cores);
 
-	if (rc != SLURM_SUCCESS) {
+	if (rc != SLURM_SUCCESS ||
+	    job_ptr->start_time > MAX(resv_desc_ptr->start_time, time(NULL))) {
 		return NULL;
 	}
 
@@ -1353,10 +1357,10 @@ static int _append_to_allowed_parts_list(list_t *allowed_parts_list,
 		return rc;
 	}
 
+	rc = SLURM_SUCCESS;
 	if (!list_find_first(allowed_parts_list, slurm_find_ptr_in_list,
 			     part_ptr)) {
 		list_append(allowed_parts_list, part_ptr);
-		rc = SLURM_SUCCESS;
 	}
 
 	return rc;
@@ -5200,22 +5204,23 @@ static bool _validate_one_reservation(slurmctld_resv_t *resv_ptr)
 extern void validate_all_reservations(bool run_now, bool run_locked)
 {
 	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	static uint32_t requests = 0;
 	bool run;
 
 	if (!run_now) {
 		slurm_mutex_lock(&mutex);
-		validate_resv_cnt++;
+		requests++;
 		log_flag(RESERVATION, "%s: requests %u",
-			 __func__, validate_resv_cnt);
-		xassert(validate_resv_cnt != UINT32_MAX);
+			 __func__, requests);
+		xassert(requests != UINT32_MAX);
 		slurm_mutex_unlock(&mutex);
 		return;
 	}
 
 	slurm_mutex_lock(&mutex);
-	run = (validate_resv_cnt > 0);
+	run = (requests > 0);
 	/* reset requests counter */
-	validate_resv_cnt = 0;
+	requests = 0;
 	slurm_mutex_unlock(&mutex);
 
 	if (run) {
@@ -7649,6 +7654,23 @@ static void _get_rel_start_end(slurmctld_resv_t *resv_ptr, time_t now,
 	}
 }
 
+static void _addto_resv_exc(bitstr_t *core_bitmap, resv_exc_t *resv_exc_ptr)
+{
+	bitstr_t **tmp_bitstr;
+
+	if (!resv_exc_ptr || !core_bitmap)
+		return;
+
+	tmp_bitstr = core_bitmap_to_array(core_bitmap);
+
+	if (!resv_exc_ptr->exc_cores) {
+		resv_exc_ptr->exc_cores = tmp_bitstr;
+	} else {
+		core_array_or(resv_exc_ptr->exc_cores, tmp_bitstr);
+		free_core_array(&tmp_bitstr);
+	}
+}
+
 extern int job_test_resv(job_record_t *job_ptr, time_t *when,
 			 bool move_time, bitstr_t **node_bitmap,
 			 resv_exc_t *resv_exc_ptr, bool *resv_overlap,
@@ -7665,6 +7687,15 @@ extern int job_test_resv(job_record_t *job_ptr, time_t *when,
 	job_start_time = *when;
 	job_end_time   = *when + _get_job_duration(job_ptr, reboot);
 	*node_bitmap = (bitstr_t *) NULL;
+
+	/*
+	 * Prevent jobs that exceed the end time of the reservation from being
+	 * attracted to a magnetic reservation
+	 */
+	if ((job_ptr->bit_flags & JOB_MAGNETIC) && (job_ptr->resv_name) &&
+	    (job_end_time > job_ptr->resv_ptr->end_time)) {
+		return ESLURM_RESERVATION_INVALID;
+	}
 
 	if (job_ptr->resv_name) {
 		if (!job_ptr->resv_ptr) {
@@ -7765,9 +7796,25 @@ extern int job_test_resv(job_record_t *job_ptr, time_t *when,
 			    (res2_ptr == resv_ptr) ||
 			    (res2_ptr->node_bitmap == NULL) ||
 			    (start_relative >= job_end_time_use) ||
-			    (end_relative   <= job_start_time) ||
-			    (!(res2_ptr->ctld_flags & RESV_CTLD_FULL_NODE)))
+			    (end_relative <= job_start_time)) {
 				continue;
+			}
+
+			if (!(res2_ptr->ctld_flags & RESV_CTLD_FULL_NODE)) {
+				/*
+				 * Flex reservations steal other reservations
+				 * resources if they are not on the full node.
+				 * This removes any cores that belong to other
+				 * reservations.
+				 */
+				if (resv_ptr->flags & RESERVE_FLAG_FLEX) {
+					_addto_resv_exc(res2_ptr->core_bitmap,
+							resv_exc_ptr);
+				}
+
+				continue;
+			}
+
 			if (bit_overlap_any(*node_bitmap,
 					    res2_ptr->node_bitmap)) {
 				log_flag(RESERVATION, "%s: reservation %s overlaps %s with %u nodes",

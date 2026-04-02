@@ -68,7 +68,8 @@ static pam_handle_t *pam_h = NULL;
  * be called once.
  */
 
-extern int pam_setup(char *user, char *host)
+int
+pam_setup (char *user, char *host)
 {
 	/*
 	 * Any application using PAM must provide a conversation function, which
@@ -129,7 +130,9 @@ fail1:
         return SLURM_ERROR;
 }
 
-extern void pam_finish(void)
+
+void
+pam_finish ()
 {
         int             rc = 0;
 
@@ -160,13 +163,13 @@ extern void pam_finish(void)
 
 #else  /* HAVE_PAM */
 
-extern int pam_setup(char *user, char *host)
+int pam_setup (char *user, char *host)
 {
 	/* Don't have PAM support, do nothing. */
 	return SLURM_SUCCESS;
 }
 
-extern void pam_finish(void)
+void pam_finish ()
 {
 	/* Don't have PAM support, do nothing. */
 }

@@ -1,5 +1,6 @@
 /*****************************************************************************\
- *  acct_gather_interconnect.h - job interconnect accounting plugin definitions
+ *  acct_gather_interconnect.h - implementation-independent job interconnect
+ *  accounting plugin definitions
  *****************************************************************************
  *  Copyright (C) 2013 Bull
  *  Written by Yiannis Georgiou <yiannis.georgiou@bull.net>

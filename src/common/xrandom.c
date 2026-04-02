@@ -1,5 +1,5 @@
 /*****************************************************************************\
- *  xrandom.c - Slurm helper functions for randomness
+ *  xgetrandom.c - Slurm helper functions for randomness
  *****************************************************************************
  *  This file is part of Slurm, a resource management program.
  *  For details, see <https://slurm.schedmd.com/>.
@@ -43,7 +43,7 @@
 #include <sys/random.h>
 #endif
 
-extern uint32_t xrandom(void)
+uint32_t xrandom(void)
 {
 	static bool no_seed = true;
 	uint32_t random_value = 0;

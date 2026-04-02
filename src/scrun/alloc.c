@@ -244,10 +244,8 @@ static int _stage_in()
 	return rc;
 }
 
-static void *_on_connection(conmgr_callback_args_t conmgr_args, void *arg)
+static void *_on_connection(conmgr_fd_t *con, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
-
 	debug("%s:[%s] new srun connection",
 	      __func__, conmgr_fd_get_name(con));
 
@@ -255,10 +253,8 @@ static void *_on_connection(conmgr_callback_args_t conmgr_args, void *arg)
 	return con;
 }
 
-static int _on_msg(conmgr_callback_args_t conmgr_args, slurm_msg_t *msg,
-		   int unpack_rc, void *arg)
+static int _on_msg(conmgr_fd_t *con, slurm_msg_t *msg, int unpack_rc, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
 	int rc = SLURM_SUCCESS;
 	xassert(arg == con);
 
@@ -345,10 +341,8 @@ static int _on_msg(conmgr_callback_args_t conmgr_args, slurm_msg_t *msg,
 	return rc;
 }
 
-static void _on_finish(conmgr_callback_args_t conmgr_args, void *arg)
+static void _on_finish(conmgr_fd_t *con, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
-
 	xassert(con == arg);
 
 	if (get_log_level() > LOG_LEVEL_DEBUG) {
@@ -570,6 +564,7 @@ static void _alloc_job(void)
 
 	/* take job env (if any) for srun calls later */
 	SWAP(state.job_env, alloc->environment);
+	alloc->env_size = envcount(alloc->environment);
 
 	/* apply SPANK env (if any) */
 	for (int i = 0; i < opt.spank_job_env_size; i++) {

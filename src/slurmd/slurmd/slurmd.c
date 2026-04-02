@@ -84,7 +84,6 @@
 #include "src/common/node_conf.h"
 #include "src/common/pack.h"
 #include "src/common/parse_time.h"
-#include "src/common/probes.h"
 #include "src/common/proc_args.h"
 #include "src/common/read_config.h"
 #include "src/common/ref.h"
@@ -342,22 +341,18 @@ static void _on_sigpipe(conmgr_callback_args_t conmgr_args, void *arg)
 	info("Caught SIGPIPE. Ignoring.");
 }
 
-static probe_status_t _probe_listener(probe_log_t *log)
+extern bool listener_quiesced(void)
 {
-	probe_status_t status = PROBE_RC_UNKNOWN;
+	bool quiesced;
 
 	slurm_mutex_lock(&listen_mutex);
-
-	if (!listener)
-		status = PROBE_RC_DOWN;
-	else if (_shutdown)
-		status = PROBE_RC_BUSY;
+	if (_shutdown || !listener)
+		quiesced = true;
 	else
-		status = PROBE_RC_READY;
-
+		quiesced = conmgr_con_is_quiesced(listener);
 	slurm_mutex_unlock(&listen_mutex);
 
-	return status;
+	return quiesced;
 }
 
 static void _unquiesce_fd_listener(void)
@@ -389,9 +384,6 @@ main (int argc, char **argv)
 
 	/* NOTE: logfile is NULL at this point */
 	log_init(argv[0], lopts, LOG_DAEMON, NULL);
-
-	probe_init();
-	probe_register("rpc-listeners", _probe_listener);
 
 	if (original) {
 		/*
@@ -598,7 +590,6 @@ main (int argc, char **argv)
 
 	conmgr_fini();
 	http_switch_fini();
-	probe_fini();
 	log_fini();
 
 	return SLURM_SUCCESS;
@@ -655,6 +646,7 @@ static void _decrement_thd_count(void)
  */
 static int _increment_thd_count(bool block)
 {
+	int rc = SLURM_SUCCESS;
 	bool logged = false;
 
 	slurm_mutex_lock(&active_mutex);
@@ -668,13 +660,13 @@ static int _increment_thd_count(bool block)
 		if (block)  {
 			slurm_cond_wait(&active_cond, &active_mutex);
 		} else {
-			slurm_mutex_unlock(&active_mutex);
-			return EWOULDBLOCK;
+			rc = EWOULDBLOCK;
+			break;
 		}
 	}
 	active_threads++;
 	slurm_mutex_unlock(&active_mutex);
-	return SLURM_SUCCESS;
+	return rc;
 }
 
 /* secs IN - wait up to this number of seconds for all threads to complete */
@@ -734,7 +726,7 @@ static void *_service_msg(void *arg)
 		 msg->auth_uid, addr, msg->protocol_version);
 
 	/* Release conmgr connection as it will have been closed */
-	CONMGR_CON_UNLINK(msg->conmgr_con);
+	conmgr_fd_free_ref(&msg->conmgr_con);
 	slurmd_req(msg);
 
 	conn_g_destroy(msg->conn, true);
@@ -745,7 +737,7 @@ static void *_service_msg(void *arg)
 		 (uint32_t) msg->msg_type, rpc_num2string(msg->msg_type));
 
 	/* Release conmgr connection as it will have been closed */
-	CONMGR_CON_UNLINK(conmgr_con);
+	conmgr_fd_free_ref(&conmgr_con);
 
 	slurm_free_msg(msg);
 
@@ -1838,6 +1830,7 @@ _process_cmdline(int ac, char **av)
 			conf->debug_level_set = 1;
 			conf->daemonize = 0;
 			conf->print_gres = true;
+			setenv("SLURM_CONFIG_FETCH", "1", 1);
 			break;
 		case 'h':
 			_usage();
@@ -1981,10 +1974,8 @@ _process_cmdline(int ac, char **av)
 	}
 }
 
-static void *_on_listen_connect(conmgr_callback_args_t conmgr_args, void *arg)
+static void *_on_listen_connect(conmgr_fd_t *con, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
-
 	debug3("%s: [%s] Successfully opened slurm listen port %u",
 	       __func__, conmgr_fd_get_name(con), conf->port);
 
@@ -2003,14 +1994,12 @@ static void *_on_listen_connect(conmgr_callback_args_t conmgr_args, void *arg)
 	return con;
 }
 
-static void _on_listen_finish(conmgr_callback_args_t conmgr_args, void *arg)
+static void _on_listen_finish(conmgr_fd_t *con, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
-
 	xassert(con == arg);
 
 	slurm_mutex_lock(&listen_mutex);
-	CONMGR_CON_UNLINK(listener);
+	conmgr_fd_free_ref(&listener);
 	slurm_mutex_unlock(&listen_mutex);
 
 	debug3("%s: [%s] closed RPC listener. Queuing up cleanup.",
@@ -2085,20 +2074,16 @@ static void _on_extract_fd(conmgr_callback_args_t conmgr_args, void *conn,
 	_try_service_msg(conmgr_args, args);
 }
 
-static void *_on_connection(conmgr_callback_args_t conmgr_args, void *arg)
+static void *_on_connection(conmgr_fd_t *con, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
-
 	debug3("%s: [%s] New RPC connection",
 	       __func__, conmgr_fd_get_name(con));
 
 	return con;
 }
 
-static int _on_msg(conmgr_callback_args_t conmgr_args, slurm_msg_t *msg,
-		   int unpack_rc, void *arg)
+static int _on_msg(conmgr_fd_t *con, slurm_msg_t *msg, int unpack_rc, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
 	int rc = SLURM_SUCCESS;
 
 	if ((unpack_rc == SLURM_PROTOCOL_AUTHENTICATION_ERROR) ||
@@ -2139,19 +2124,17 @@ static int _on_msg(conmgr_callback_args_t conmgr_args, slurm_msg_t *msg,
 	return rc;
 }
 
-static void _on_finish(conmgr_callback_args_t conmgr_args, void *arg)
+static void _on_finish(conmgr_fd_t *con, void *arg)
 {
-	conmgr_fd_t *con = conmgr_args.con;
-
 	xassert(arg == con);
 
 	debug3("%s: [%s] RPC connection closed",
 	       __func__, conmgr_fd_get_name(con));
 }
 
-static int _on_data(conmgr_callback_args_t conmgr_args, void *arg)
+static int _on_data(conmgr_fd_t *con, void *arg)
 {
-	return http_switch_on_data(conmgr_args, on_http_connection);
+	return http_switch_on_data(con, on_http_connection);
 }
 
 static void _create_msg_socket(void)
@@ -2836,7 +2819,7 @@ extern void slurmd_shutdown(void)
 	_shutdown = 1;
 
 	slurm_mutex_lock(&listen_mutex);
-	CONMGR_CON_UNLINK(listener);
+	conmgr_fd_free_ref(&listener);
 	slurm_mutex_unlock(&listen_mutex);
 
 	conmgr_request_shutdown();

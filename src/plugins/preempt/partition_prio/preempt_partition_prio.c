@@ -53,10 +53,9 @@
 #include "src/slurmctld/slurmctld.h"
 #include "src/slurmctld/job_scheduler.h"
 
-/* Required Slurm plugin symbols: */
-const char plugin_name[] = "Preempt by partition priority plugin";
-const char plugin_type[] = "preempt/partition_prio";
-const uint32_t plugin_version = SLURM_VERSION_NUMBER;
+const char	plugin_name[]	= "Preempt by partition priority plugin";
+const char	plugin_type[]	= "preempt/partition_prio";
+const uint32_t	plugin_version	= SLURM_VERSION_NUMBER;
 
 extern uint16_t preempt_p_get_mode(job_record_t *job_ptr)
 {

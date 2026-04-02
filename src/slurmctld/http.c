@@ -37,7 +37,6 @@
 #include "src/common/http_con.h"
 #include "src/common/http_router.h"
 #include "src/common/pack.h"
-#include "src/common/probes.h"
 #include "src/common/xmalloc.h"
 #include "src/common/xstring.h"
 
@@ -47,6 +46,7 @@
 
 #include "src/slurmctld/http.h"
 #include "src/slurmctld/locks.h"
+#include "src/slurmctld/slurmctld.h"
 
 static int _reply_error(http_con_t *hcon, const char *name,
 			const http_con_request_t *request, int err)
@@ -117,24 +117,12 @@ static int _req_readyz(http_con_t *hcon, const char *name,
 		       const http_con_request_t *request, void *arg)
 {
 	http_status_code_t status = HTTP_STATUS_CODE_SRVERR_INTERNAL;
-	buf_t *body = NULL;
-	int rc = EINVAL;
 
-	if (!xstrcasecmp(request->url.query, "verbose") &&
-	    !slurm_conf.private_data)
-		body = init_buf(BUF_SIZE);
+	if (!listeners_quiesced() && is_primary() && !is_reconfiguring() &&
+	    !conmgr_is_quiesced())
+		status = HTTP_STATUS_CODE_SUCCESS_NO_CONTENT;
 
-	if (probe_run(body, NULL, body, __func__) >= PROBE_RC_READY) {
-		if (body && (get_buf_offset(body) > 0))
-			status = HTTP_STATUS_CODE_SUCCESS_OK;
-		else
-			status = HTTP_STATUS_CODE_SUCCESS_NO_CONTENT;
-	}
-
-	rc = http_con_send_response(hcon, status, NULL, true, body,
-				    MIME_TYPE_TEXT);
-	FREE_NULL_BUFFER(body);
-	return rc;
+	return http_con_send_response(hcon, status, NULL, true, NULL, NULL);
 }
 
 static int _send_metrics_resp(http_con_t *hcon, char *stats_str)
@@ -220,7 +208,7 @@ extern int _req_metrics_partitions(http_con_t *hcon, const char *name,
 	slurmctld_lock_t part_read_lock = {
 		.conf = READ_LOCK,
 		.job = READ_LOCK,
-		.node = READ_LOCK,
+		.node = WRITE_LOCK, /* required by statistics_get_nodes() */
 		.part = READ_LOCK,
 	};
 
@@ -286,23 +274,15 @@ extern int _req_metrics_sched(http_con_t *hcon, const char *name,
 static int _req_livez(http_con_t *hcon, const char *name,
 		      const http_con_request_t *request, void *arg)
 {
-	http_status_code_t status = HTTP_STATUS_CODE_SRVERR_INTERNAL;
-
-	if (probe_run(false, NULL, NULL, __func__) >= PROBE_RC_ONLINE)
-		status = HTTP_STATUS_CODE_SUCCESS_NO_CONTENT;
-
-	return http_con_send_response(hcon, status, NULL, true, NULL, NULL);
+	return http_con_send_response(hcon, HTTP_STATUS_CODE_SUCCESS_NO_CONTENT,
+				      NULL, true, NULL, NULL);
 }
 
 static int _req_healthz(http_con_t *hcon, const char *name,
 			const http_con_request_t *request, void *arg)
 {
-	http_status_code_t status = HTTP_STATUS_CODE_SRVERR_INTERNAL;
-
-	if (probe_run(false, NULL, NULL, __func__) >= PROBE_RC_ONLINE)
-		status = HTTP_STATUS_CODE_SUCCESS_NO_CONTENT;
-
-	return http_con_send_response(hcon, status, NULL, true, NULL, NULL);
+	return http_con_send_response(hcon, HTTP_STATUS_CODE_SUCCESS_NO_CONTENT,
+				      NULL, true, NULL, NULL);
 }
 
 extern void http_init(void)
@@ -339,7 +319,7 @@ extern int on_http_connection(conmgr_fd_t *con)
 
 	rc = http_con_assign_server(ref, NULL, &events, NULL);
 
-	CONMGR_CON_UNLINK(ref);
+	conmgr_fd_free_ref(&ref);
 
 	return rc;
 }

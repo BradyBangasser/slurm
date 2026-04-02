@@ -56,12 +56,33 @@ extern list_t *job_list __attribute__((weak_import));
 list_t *job_list;
 #endif
 
-/* Required Slurm plugin symbols: */
+ /*
+ * These variables are required by the generic plugin interface.  If they
+ * are not found in the plugin, the plugin loader will ignore it.
+ *
+ * plugin_name - a string giving a human-readable description of the
+ * plugin.  There is no maximum length, but the symbol must refer to
+ * a valid string.
+ *
+ * plugin_type - a string suggesting the type of the plugin or its
+ * applicability to a particular form of data or method of data handling.
+ * If the low-level plugin API is used, the contents of this string are
+ * unimportant and may be anything.  Slurm uses the higher-level plugin
+ * interface which requires this string to be of the form
+ *
+ *      <application>/<method>
+ *
+ * where <application> is a description of the intended application of
+ * the plugin (e.g., "switch" for Slurm switch) and <method> is a description
+ * of how this plugin satisfies that application.  Slurm will only load
+ * a switch plugin if the plugin_type string has a prefix of "switch/".
+ *
+ * plugin_version - an unsigned 32-bit integer containing the Slurm version
+ * (major.minor.micro combined into a single number).
+ */
 const char plugin_name[] = "switch NVIDIA IMEX plugin";
 const char plugin_type[] = "switch/nvidia_imex";
 const uint32_t plugin_version = SLURM_VERSION_NUMBER;
-
-/* Required for switch plugins: */
 const uint32_t plugin_id = SWITCH_PLUGIN_NVIDIA_IMEX;
 
 #define SWITCH_INFO_MAGIC 0xFF00FF00
@@ -301,7 +322,7 @@ extern int switch_p_jobinfo_unpack(switch_info_t **switch_info, buf_t *buffer,
 		channel_t *channel;
 		uint32_t channel_id = NO_VAL;
 
-		*switch_info = NULL;
+		xfree(*switch_info);
 
 		safe_unpack32(&channel_id, buffer);
 
@@ -323,6 +344,7 @@ extern int switch_p_jobinfo_unpack(switch_info_t **switch_info, buf_t *buffer,
 
 unpack_error:
 	error("%s: unpack error", __func__);
+	xfree(*switch_info);
 	return SLURM_ERROR;
 }
 
@@ -553,6 +575,7 @@ static void _allocate_channel(
 
 		list_for_each(*channel_list, _release_channel, job_ptr);
 		FREE_NULL_LIST(*channel_list);
+		*rc_ptr = SLURM_ERROR;
 	}
 }
 
@@ -614,7 +637,7 @@ extern int switch_p_job_start(job_record_t *job_ptr, bool test_only)
 		log_flag(SWITCH, "%s: Allocating only one channel for %pJ with older protocol version %d",
 			 __func__, job_ptr, job_ptr->start_protocol_ver);
 		_allocate_channel(&args, NULL);
-	} else if (xstrstr("unique-channel-per-segment", job_ptr->network) &&
+	} else if (xstrstr(job_ptr->network, "unique-channel-per-segment") &&
 		   job_ptr->topo_jobinfo &&
 		   (topology_g_jobinfo_get(TOPO_JOBINFO_SEGMENT_LIST,
 					   job_ptr->topo_jobinfo,

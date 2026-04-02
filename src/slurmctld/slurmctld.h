@@ -70,8 +70,6 @@
 #include "src/common/timers.h"
 #include "src/common/xmalloc.h"
 
-#include "src/conmgr/conmgr.h"
-
 #include "src/interfaces/cred.h"
 
 /*****************************************************************************\
@@ -262,6 +260,7 @@ extern uint32_t max_powered_nodes;
 extern pthread_cond_t purge_thread_cond;
 extern pthread_mutex_t purge_thread_lock;
 extern pthread_mutex_t check_bf_running_lock;
+extern pthread_cond_t check_bf_running_cond;
 extern int   sched_interval;
 extern bool  slurmctld_init_db;
 extern bool slurmctld_primary;
@@ -1610,11 +1609,9 @@ extern void restore_node_features(int recover);
 extern void run_backup(void);
 
 /* conmgr RPC connection callbacks */
-extern void *on_backup_connection(conmgr_callback_args_t conmgr_args,
-				  void *arg);
-extern void on_backup_finish(conmgr_callback_args_t conmgr_args, void *arg);
-extern int on_backup_msg(conmgr_callback_args_t conmgr_args, slurm_msg_t *msg,
-			 void *arg);
+extern void *on_backup_connection(conmgr_fd_t *con, void *arg);
+extern void on_backup_finish(conmgr_fd_t *con, void *arg);
+extern int on_backup_msg(conmgr_fd_t *con, slurm_msg_t *msg, void *arg);
 
 /*
  * ping_controllers - ping other controllers in HA configuration.
@@ -2263,6 +2260,9 @@ extern int set_part_topology_idx(void *x, void *arg);
 
 extern void reconfigure_slurm(slurm_msg_t *msg);
 
+/* True if slurmctld has a pending reconfigure request */
+extern bool is_reconfiguring(void);
+
 extern void notify_parent_of_success(void);
 
 /*
@@ -2305,6 +2305,12 @@ extern void listeners_unquiesce(void);
 
 /* Stop listener sockets from accept()ing new incoming requests */
 extern void listeners_quiesce(void);
+
+/* True if listeners are quiesced */
+extern bool listeners_quiesced(void);
+
+/* True if slurmctld process running as primary controller */
+extern bool is_primary(void);
 
 /* Set/update a node's topology */
 extern int node_mgr_set_node_topology(node_record_t *node_ptr,

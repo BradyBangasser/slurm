@@ -1504,7 +1504,7 @@ x11_fail:
 			step->oom_error = true;
 
 	/* Lock to not collide with the _x11_signal_handler thread. */
-	auth_setuid_lock();
+	auth_context_lock();
 
 	/*
 	 * This function below calls jobacct_gather_fini(). For the case of
@@ -1515,10 +1515,11 @@ x11_fail:
 	acct_gather_profile_fini();
 	task_g_post_step(step);
 
-	auth_setuid_unlock();
+	auth_context_unlock();
 
 fail1:
-	conmgr_add_work_fifo(_x11_signal_handler, NULL);
+	if (step->x11)
+		conmgr_add_work_fifo(_x11_signal_handler, NULL);
 
 	debug2("%s: Before call to spank_fini()", __func__);
 	if (spank_fini(step))
@@ -2062,6 +2063,7 @@ static void _prepare_stdio(stepd_step_task_info_t *task)
 	}
 #endif
 	io_dup_stdio(task);
+	return;
 }
 
 /*
@@ -2227,6 +2229,7 @@ static int _fork_all_tasks(bool *io_initialized)
 			goto fail4;
 		} else if ((pid = _exec_wait_get_pid(ei)) == 0) { /* child */
 			int rc;
+			sigset_t mask;
 
 			/*
 			 *  Destroy exec_wait_list in the child.
@@ -2235,6 +2238,17 @@ static int _fork_all_tasks(bool *io_initialized)
 			 *   can be discarded.
 			 */
 			FREE_NULL_LIST(exec_wait_list);
+
+			/*
+			 * Unblock SIGCHLD since this is blocked early by the
+			 * slurmstepd
+			 */
+			sigemptyset(&mask);
+			sigaddset(&mask, SIGCHLD);
+			if (pthread_sigmask(SIG_UNBLOCK, &mask, NULL) == -1) {
+				error("pthread_sigmask() failed: %m");
+				_exit(1);
+			}
 
 			/* jobacctinfo_endpoll();
 			 * closing jobacct files here causes deadlock */
@@ -2708,6 +2722,8 @@ static void _wait_for_io(void)
 
 	/* Close any files for stdout/stderr opened by the stepd */
 	io_close_local_fds();
+
+	return;
 }
 
 static int _make_batch_dir(void)
@@ -2871,6 +2887,7 @@ _send_launch_failure(launch_tasks_request_msg_t *msg, slurm_addr_t *cli, int rc,
 	if (_send_srun_resp_msg(&resp_msg, msg->nnodes) != SLURM_SUCCESS)
 		error("%s: Failed to send RESPONSE_LAUNCH_TASKS: %m", __func__);
 	xfree(name);
+	return;
 }
 
 static void _send_launch_resp(int rc)

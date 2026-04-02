@@ -63,13 +63,34 @@ node_record_t **node_record_table_ptr;
 int node_record_count;
 #endif
 
-/* Required Slurm plugin symbols: */
-const char plugin_name[] = "topology block plugin";
-const char plugin_type[] = "topology/block";
-const uint32_t plugin_version = SLURM_VERSION_NUMBER;
-
-/* Required for topology plugins: */
+/*
+ * These variables are required by the generic plugin interface.  If they
+ * are not found in the plugin, the plugin loader will ignore it.
+ *
+ * plugin_name - a string giving a human-readable description of the
+ * plugin.  There is no maximum length, but the symbol must refer to
+ * a valid string.
+ *
+ * plugin_type - a string suggesting the type of the plugin or its
+ * applicability to a particular form of data or method of data handling.
+ * If the low-level plugin API is used, the contents of this string are
+ * unimportant and may be anything.  Slurm uses the higher-level plugin
+ * interface which requires this string to be of the form
+ *
+ *      <application>/<method>
+ *
+ * where <application> is a description of the intended application of
+ * the plugin (e.g., "task" for task control) and <method> is a description
+ * of how this plugin satisfies that application.  Slurm will only load
+ * a task plugin if the plugin_type string has a prefix of "task/".
+ *
+ * plugin_version - an unsigned 32-bit integer containing the Slurm version
+ * (major.minor.micro combined into a single number).
+ */
+const char plugin_name[]        = "topology block plugin";
+const char plugin_type[]        = "topology/block";
 const uint32_t plugin_id = TOPOLOGY_PLUGIN_BLOCK;
+const uint32_t plugin_version   = SLURM_VERSION_NUMBER;
 const bool supports_exclusive_topo = true;
 
 typedef struct topoinfo_bblock {
@@ -455,7 +476,7 @@ extern int topology_p_topoinfo_pack(void *topoinfo_ptr, buf_t *buffer,
 	int i;
 	topoinfo_block_t *topoinfo = topoinfo_ptr;
 
-	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+	if (protocol_version >= SLURM_24_11_PROTOCOL_VERSION) {
 		pack32(topoinfo->record_count, buffer);
 		for (i = 0; i < topoinfo->record_count; i++) {
 			packbool(topoinfo->topo_array[i].aggregated, buffer);
@@ -463,6 +484,13 @@ extern int topology_p_topoinfo_pack(void *topoinfo_ptr, buf_t *buffer,
 			packstr(topoinfo->topo_array[i].name, buffer);
 			packstr(topoinfo->topo_array[i].nodes, buffer);
 			pack32(topoinfo->topo_array[i].size, buffer);
+		}
+	} else if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+		pack32(topoinfo->record_count, buffer);
+		for (i = 0; i < topoinfo->record_count; i++) {
+			pack16(topoinfo->topo_array[i].block_index, buffer);
+			packstr(topoinfo->topo_array[i].name, buffer);
+			packstr(topoinfo->topo_array[i].nodes, buffer);
 		}
 	} else {
 		return SLURM_ERROR;
@@ -533,7 +561,7 @@ extern int topology_p_topoinfo_unpack(void **topoinfo_pptr, buf_t *buffer,
 		xmalloc(sizeof(topoinfo_block_t));
 
 	*topoinfo_pptr = topoinfo_ptr;
-	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+	if (protocol_version >= SLURM_24_11_PROTOCOL_VERSION) {
 		safe_unpack32(&topoinfo_ptr->record_count, buffer);
 		safe_xcalloc(topoinfo_ptr->topo_array,
 			     topoinfo_ptr->record_count,
@@ -549,6 +577,20 @@ extern int topology_p_topoinfo_unpack(void **topoinfo_pptr, buf_t *buffer,
 				       buffer);
 			safe_unpack32(&topoinfo_ptr->topo_array[i].size,
 				      buffer);
+		}
+	} else if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+		safe_unpack32(&topoinfo_ptr->record_count, buffer);
+		safe_xcalloc(topoinfo_ptr->topo_array, topoinfo_ptr->record_count,
+			     sizeof(topoinfo_bblock_t));
+		for (i = 0; i < topoinfo_ptr->record_count; i++) {
+			topoinfo_ptr->topo_array[i].aggregated = false;
+			safe_unpack16(&topoinfo_ptr->topo_array[i].block_index,
+				      buffer);
+			safe_unpackstr(&topoinfo_ptr->topo_array[i].name,
+				       buffer);
+			safe_unpackstr(&topoinfo_ptr->topo_array[i].nodes,
+				       buffer);
+			topoinfo_ptr->topo_array[i].size = 0;
 		}
 	} else {
 		goto unpack_error;

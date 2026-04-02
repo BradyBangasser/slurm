@@ -81,7 +81,6 @@ static void _forward_msg_internal(hostlist_t *hl, hostlist_t **sp_hl,
 				  forward_struct_t *fwd_struct,
 				  header_t *header, int timeout,
 				  int hl_count);
-static void _destroy_forward_struct(forward_struct_t *forward_struct);
 
 void _destroy_tree_fwd(fwd_tree_t *fwd_tree)
 {
@@ -685,9 +684,19 @@ extern int forward_msg(forward_struct_t *forward_struct, header_t *header)
 	}
 
 	/* Calculate the new timeout based on the original timeout */
-	xassert(header->forward.tree_depth);
-	header->forward.timeout = (header->forward.timeout * depth) /
-		header->forward.tree_depth;
+	if (header->forward.tree_depth)
+		header->forward.timeout = (header->forward.timeout * depth) /
+					  header->forward.tree_depth;
+	else {
+		/*
+		 * tree_depth not packed - likely using 24.05- protocol version.
+		 * Calculate the timeout based on MessageTimeout instead.
+		 */
+		header->forward.timeout =
+			(2 * depth * slurm_conf.msg_timeout * MSEC_IN_SEC);
+		debug3("%s: original tree_depth was 0 so setting new timeout to %d",
+			__func__, header->forward.timeout);
+	}
 	header->forward.tree_depth = depth;
 	forward_struct->timeout = header->forward.timeout;
 
@@ -906,6 +915,8 @@ extern void mark_as_failed_forward(list_t **ret_list, char *node_name, int err)
 	ret_data_info->type = RESPONSE_FORWARD_FAILED;
 	ret_data_info->err = err;
 	list_push(*ret_list, ret_data_info);
+
+	return;
 }
 
 extern void forward_wait(slurm_msg_t * msg)
@@ -932,9 +943,9 @@ extern void forward_wait(slurm_msg_t * msg)
 		}
 		debug2("Got them all");
 		slurm_mutex_unlock(&msg->forward_struct->forward_mutex);
-		_destroy_forward_struct(msg->forward_struct);
-		msg->forward_struct = NULL;
+		FREE_NULL_FORWARD_STRUCT(msg->forward_struct);
 	}
+	return;
 }
 
 extern void fwd_set_alias_addrs(slurm_node_alias_addrs_t *alias_addrs)
@@ -973,7 +984,7 @@ extern void destroy_forward(forward_t *forward)
 	}
 }
 
-static void _destroy_forward_struct(forward_struct_t *forward_struct)
+extern void destroy_forward_struct(forward_struct_t *forward_struct)
 {
 	if (forward_struct) {
 		xfree(forward_struct->buf);

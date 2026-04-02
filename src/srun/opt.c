@@ -1234,9 +1234,11 @@ static bool _opt_verify(void)
 			xfree(tmp);
 			if (hl_cnt > opt.min_nodes) {
 				int del_cnt, i;
+				char *host;
 				del_cnt = hl_cnt - opt.min_nodes;
 				for (i=0; i<del_cnt; i++) {
-					hostlist_drop(hl);
+					host = hostlist_pop(hl);
+					free(host);
 				}
 				xfree(opt.nodelist);
 				opt.nodelist =

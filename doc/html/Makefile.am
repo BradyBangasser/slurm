@@ -36,7 +36,6 @@ generated_html = \
 	hres.html \
 	jobcomp_kafka.html \
 	job_array.html \
-	job_container_tmpfs.html \
 	job_exit_code.html \
 	job_launch.html \
 	job_reason_codes.html \
@@ -53,6 +52,7 @@ generated_html = \
 	metrics.html \
 	mpi_guide.html \
 	multi_cluster.html \
+	namespace.html \
 	network.html \
 	nss_slurm.html \
 	openapi_release_notes.html \
@@ -67,6 +67,7 @@ generated_html = \
 	priority_multifactor3.html \
 	programmer_guide.html \
 	prolog_epilog.html \
+	publications.html \
 	qos.html \
 	quickstart_admin.html \
 	quickstart.html \

@@ -44,7 +44,7 @@
  * Define the functions that are called to setup a PAM session and close it
  * when finished.
  */
-extern int pam_setup(char *user, char *host);
-extern void pam_finish(void);
+int pam_setup (char *user, char *host);
+void pam_finish ();
 
 #endif /* !_SLURMD_PAMSES_H */

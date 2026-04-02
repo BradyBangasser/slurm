@@ -50,13 +50,35 @@
 #include "src/slurmrestd/http.h"
 #include "src/slurmrestd/rest_auth.h"
 
-/* Required Slurm plugin symbols: */
+/*
+ * These variables are required by the generic plugin interface.  If they
+ * are not found in the plugin, the plugin loader will ignore it.
+ *
+ * plugin_name - a string giving a human-readable description of the
+ * plugin.  There is no maximum length, but the symbol must refer to
+ * a valid string.
+ *
+ * plugin_type - a string suggesting the type of the plugin or its
+ * applicability to a particular form of data or method of data handling.
+ * If the low-level plugin API is used, the contents of this string are
+ * unimportant and may be anything.  Slurm uses the higher-level plugin
+ * interface which requires this string to be of the form
+ *
+ *	<application>/<method>
+ *
+ * where <application> is a description of the intended application of
+ * the plugin (e.g., "select" for Slurm node selection) and <method>
+ * is a description of how this plugin satisfies that application.  Slurm will
+ * only load select plugins if the plugin_type string has a
+ * prefix of "select/".
+ *
+ * plugin_version - an unsigned 32-bit integer containing the Slurm version
+ * (major.minor.micro combined into a single number).
+ */
 const char plugin_name[] = "REST auth/jwt";
 const char plugin_type[] = "rest_auth/jwt";
-const uint32_t plugin_version = SLURM_VERSION_NUMBER;
-
-/* Required for rest_auth plugins: */
 const uint32_t plugin_id = 100;
+const uint32_t plugin_version = SLURM_VERSION_NUMBER;
 
 #define MAGIC 0x221abee1
 typedef struct {
@@ -68,9 +90,10 @@ typedef struct {
 extern int slurm_rest_auth_p_authenticate(on_http_request_args_t *args,
 					  rest_auth_context_t *ctxt)
 {
-	plugin_data_t *data;
-	const char *key, *user_name, *bearer;
+	plugin_data_t *data = NULL;
+	const char *key = NULL, *user_name = NULL, *bearer = NULL;
 	const char *name = args->name;
+	char *token = NULL;
 
 	key = find_http_header(args->headers, HTTP_HEADER_USER_TOKEN);
 	bearer = find_http_header(args->headers, HTTP_HEADER_AUTH);
@@ -96,23 +119,24 @@ extern int slurm_rest_auth_p_authenticate(on_http_request_args_t *args,
 	xassert(!ctxt->plugin_data);
 	xassert(!ctxt->plugin_id);
 
-	ctxt->plugin_data = data = xmalloc(sizeof(*data));
-	data->magic = MAGIC;
-	ctxt->user_name = xstrdup(user_name);
-
 	if (key) {
-		data->token = xstrdup(key);
+		token = xstrdup(key);
 	} else if (bearer) {
 		if (!xstrncmp(HTTP_HEADER_AUTH_BEARER, bearer,
 			      strlen(HTTP_HEADER_AUTH_BEARER))) {
-			data->token = xstrdup(bearer +
-					      strlen(HTTP_HEADER_AUTH_BEARER));
+			token = xstrdup(bearer +
+					strlen(HTTP_HEADER_AUTH_BEARER));
 		} else {
 			error("%s: [%s] unexpected format for %s header: %s",
 			      __func__, name, HTTP_HEADER_AUTH, bearer);
 			return ESLURM_AUTH_CRED_INVALID;
 		}
 	}
+
+	ctxt->plugin_data = data = xmalloc(sizeof(*data));
+	data->magic = MAGIC;
+	data->token = token;
+	ctxt->user_name = xstrdup(user_name);
 
 	if (user_name)
 		info("[%s] attempting user_name %s token authentication pass through",

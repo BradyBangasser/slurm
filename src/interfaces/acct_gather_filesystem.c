@@ -1,5 +1,6 @@
 /*****************************************************************************\
- *  acct_gather_filesystem.c - job filesystem accounting plugin definitions
+ *  slurm_acct_gather_filesystem.c - implementation-independent job filesystem
+ *  accounting plugin definitions
  *****************************************************************************
  *  Copyright (C) 2013 Bull.
  *  Written by Yiannis Georgiou <yiannis.georgiou@bull.net>

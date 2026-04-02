@@ -1106,7 +1106,7 @@ typedef enum {
 	SELECT_PACK_NODES = SLURM_BIT(9),
 	/* Prefer least-loaded device for shared GRES */
 	SELECT_LL_SHARED_GRES = SLURM_BIT(10),
-	/* SLURM_BIT(11), empty */
+	/* was SELECT_OTHER_CONS_TRES = SLURM_BIT(11), removed v24.05 */
 	/*
 	 * By default, distribute cores using a block approach inside the
 	 * nodes
@@ -2420,7 +2420,6 @@ typedef struct node_info {
 	uint64_t real_memory;	/* configured MB of real memory on the node */
 	uint16_t res_cores_per_gpu; /* number of cores per GPU to allow
 				     * to only GPU jobs */
-  uint64_t res_mem_per_gpu; /* amount of mem per GPU to allow to GPU only jobs */
 	char *gpu_spec;         /* node's cores reserved for GPU jobs */
 	char *comment;		/* arbitrary comment */
 	char *reason;		/* reason for node being DOWN or DRAINING */
@@ -4669,7 +4668,7 @@ extern void slurm_init_resv_desc_msg(resv_desc_msg_t *update_resv_msg);
 /*
  * slurm_create_reservation - create a new reservation, only usable by user root
  * IN resv_msg - description of reservation
- * RET name of reservation on success (caller must xfree the memory),
+ * RET name of reservation on success (caller must free the memory),
  *	otherwise return NULL and set errno to indicate the error
  */
 extern char *slurm_create_reservation(resv_desc_msg_t *resv_msg);

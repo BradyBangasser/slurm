@@ -3024,11 +3024,12 @@ static void _slurm_rpc_job_sbcast_cred(slurm_msg_t *msg)
 						     &job_info_msg->step_id,
 						     msg->protocol_version,
 						     &job_info_resp_msg);
-	unlock_slurmctld(job_read_lock);
-	END_TIMER2(__func__);
 
 	if (error_code)
 		goto error;
+
+	unlock_slurmctld(job_read_lock);
+	END_TIMER2(__func__);
 
 	info("%s: %s NodeList=%s - %s",
 	     __func__,
@@ -3046,6 +3047,7 @@ static void _slurm_rpc_job_sbcast_cred(slurm_msg_t *msg)
 
 error:
 	unlock_slurmctld(job_read_lock);
+	END_TIMER2(__func__);
 
 	debug2("%s: JobId=%s, uid=%u: %s",
 	       __func__,
@@ -6027,6 +6029,7 @@ end_it:
 	}
 	xfree(comment);
 	FREE_NULL_BUFFER(ret_buf);
+	FREE_NULL_MSG(msg);
 	END_TIMER;
 
 	/* Don't free this here, it will be done elsewhere */
@@ -6038,7 +6041,6 @@ static void _slurm_rpc_tls_cert(slurm_msg_t *msg)
 	tls_cert_request_msg_t *req = msg->data;
 	tls_cert_response_msg_t resp = { 0 };
 	node_record_t *node = NULL;
-	bool is_client_auth = false;
 
 	if (!validate_slurm_user(msg->auth_uid)) {
 		error("Security violation, REQUEST_TLS_CERT from uid=%u",
@@ -6052,11 +6054,9 @@ static void _slurm_rpc_tls_cert(slurm_msg_t *msg)
 			 __func__);
 	}
 
-	is_client_auth = conn_g_is_client_authenticated(msg->conn);
-
 	if (!(resp.signed_cert =
-		      certmgr_g_sign_csr(req->csr, is_client_auth, req->token,
-					 req->node_name))) {
+		      certmgr_g_sign_csr(req->csr, msg->conn_is_mtls,
+					 req->token, req->node_name))) {
 		error("%s: Unable to sign certificate signing request.",
 		      __func__);
 		slurm_send_rc_msg(msg, SLURM_ERROR);
@@ -6887,6 +6887,7 @@ slurmctld_rpc_t slurmctld_rpcs[] =
 	},{
 		.msg_type = REQUEST_PERSIST_INIT,
 		.func = _slurm_rpc_persist_init,
+		.keep_msg = true,
 	},{
 		.msg_type = REQUEST_SET_FS_DAMPENING_FACTOR,
 		.func = _slurm_rpc_set_fs_dampening_factor,

@@ -528,8 +528,7 @@ static int _parse_nodename(void **dest, slurm_parser_enum_t type,
 		{"RealMemory", S_P_UINT64},
 		{"Reason", S_P_STRING},
 		{"RestrictedCoresPerGPU", S_P_UINT16},
-		{"RestrictedMemoryPerGPU", S_P_UINT64},
-    {"Sockets", S_P_UINT16},
+		{"Sockets", S_P_UINT16},
 		{"SocketsPerBoard", S_P_UINT16},
 		{"State", S_P_STRING},
 		{"ThreadsPerCore", S_P_UINT16},
@@ -660,11 +659,6 @@ static int _parse_nodename(void **dest, slurm_parser_enum_t type,
 				    "RestrictedCoresPerGPU", tbl))
 			s_p_get_uint16(&n->res_cores_per_gpu,
 				       "RestrictedCoresPerGPU", dflt);
-
-		if (!s_p_get_uint64(&n->res_mem_per_gpu,
-				    "RestrictedMemoryPerGPU", tbl))
-			s_p_get_uint64(&n->res_mem_per_gpu,
-				       "RestrictedMemoryPerGPU", dflt);
 
 		if (!s_p_get_uint16(&n->tot_sockets, "Sockets", tbl) &&
 		    !s_p_get_uint16(&n->tot_sockets, "Sockets", dflt)) {
@@ -1783,8 +1777,8 @@ static int _parse_slurmctld_host(void **dest, slurm_parser_enum_t type,
 	tbl = s_p_hashtbl_create(_slurmctld_host_options);
 	s_p_parse_line(tbl, *leftover, leftover);
 
-	open_paren = strchr(value, '(');
-	close_paren = strchr(value, ')');
+	open_paren = xstrchr(value, '(');
+	close_paren = xstrchr(value, ')');
 	if ((open_paren && !close_paren) ||
 	    (!open_paren && close_paren) ||
 	    (close_paren && (close_paren[1] != '\0')) ||
@@ -1796,11 +1790,11 @@ static int _parse_slurmctld_host(void **dest, slurm_parser_enum_t type,
 	p = xmalloc(sizeof(slurm_conf_server_t));
 	if (open_paren && close_paren) {
 		p->hostname = xstrdup(value);
-		open_paren = strchr(p->hostname, '(');
+		open_paren = xstrchr(p->hostname, '(');
 		if (open_paren)
 			open_paren[0] = '\0';
 		p->addr = xstrdup(open_paren + 1);
-		close_paren = strchr(p->addr, ')');
+		close_paren = xstrchr(p->addr, ')');
 		if (close_paren)
 			close_paren[0] = '\0';
 	} else {

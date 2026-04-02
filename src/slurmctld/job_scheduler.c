@@ -232,11 +232,12 @@ static int	_valid_node_feature(char *feature, bool can_reboot);
 static int	build_queue_timeout = BUILD_TIMEOUT;
 static int	correspond_after_task_cnt = CORRESPOND_ARRAY_TASK_CNT;
 
-static pthread_mutex_t sched_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t  sched_cond = PTHREAD_COND_INITIALIZER;
-static pthread_t thread_id_sched = 0;
+pthread_mutex_t sched_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t sched_cond = PTHREAD_COND_INITIALIZER;
 static bool sched_full_queue = false;
-static int sched_requests = 0;
+int sched_requests = 0;
+bool sched_running = false;
+bool sched_alive = false;
 static struct timeval sched_last = {0, 0};
 
 static uint32_t max_array_size = NO_VAL;
@@ -929,7 +930,7 @@ static void *_sched_agent(void *args)
 		while (true) {
 			if (slurmctld_config.shutdown_time) {
 				slurm_mutex_unlock(&sched_mutex);
-				return NULL;
+				goto cleanup;
 			}
 
 			gettimeofday(&now, NULL);
@@ -959,6 +960,7 @@ static void *_sched_agent(void *args)
 		full_queue = sched_full_queue;
 		sched_full_queue = false;
 		sched_requests = 0;
+		sched_running = true;
 		slurm_mutex_unlock(&sched_mutex);
 
 		job_cnt = _schedule(full_queue);
@@ -970,7 +972,20 @@ static void *_sched_agent(void *args)
 			schedule_node_save();		/* Has own locking */
 			schedule_job_save();		/* Has own locking */
 		}
+
+		/* Signal that scheduling work is complete */
+		slurm_mutex_lock(&sched_mutex);
+		sched_running = false;
+		slurm_cond_broadcast(&sched_cond);
+		slurm_mutex_unlock(&sched_mutex);
 	}
+
+cleanup:
+	slurm_mutex_lock(&sched_mutex);
+	xassert(sched_alive);
+	sched_alive = false;
+	slurm_cond_broadcast(&sched_cond);
+	slurm_mutex_unlock(&sched_mutex);
 
 	return NULL;
 }
@@ -1834,7 +1849,8 @@ skip_start:
 				     job_state_reason_string(
 					     job_ptr->state_reason),
 				     job_ptr->priority, job_ptr->partition);
-			fail_by_part = true;
+			if (!use_prefer)
+				fail_by_part = true;
 		} else if (error_code == ESLURM_LICENSES_UNAVAILABLE) {
 			sched_debug3("%pJ. State=%s. Reason=%s. Priority=%u.",
 				     job_ptr,
@@ -1947,8 +1963,10 @@ skip_start:
 			debug("%pJ non-runnable in reservation %s: %s",
 			      job_ptr, job_ptr->resv_ptr->name,
 			      slurm_strerror(error_code));
-		} else if ((error_code ==
-			    ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE) &&
+		} else if (((error_code ==
+			     ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE) ||
+			    (error_code ==
+			     ESLURM_REQUESTED_TOPO_CONFIG_UNAVAILABLE)) &&
 			   job_ptr->part_ptr_list) {
 			debug("%pJ non-runnable in partition %s: %s",
 			      job_ptr, job_ptr->part_ptr->name,
@@ -2414,6 +2432,27 @@ static batch_job_launch_msg_t *_build_launch_job_msg(job_record_t *job_ptr,
 	launch_msg_ptr->std_in = xstrdup(job_ptr->details->std_in);
 	launch_msg_ptr->std_out = xstrdup(job_ptr->details->std_out);
 	launch_msg_ptr->work_dir = xstrdup(job_ptr->details->work_dir);
+
+	/*
+	 * Upon job submission, slurmctld will fill in the default stdout path
+	 * in the job record if the job did not specify a path (e.g. no --output
+	 * for sbatch). For jobs that were submitted to an older slurmctld
+	 * (25.05 and older), and are using the using the default stdout path,
+	 * they will not store the stdout path in the job record. The following
+	 * logic fills in the default stdout path in the batch launch message so
+	 * that slurmstepd can handle the paths correctly as they now expect
+	 * stdout path to be set.
+	 */
+	if ((job_ptr->start_protocol_ver <= SLURM_25_05_PROTOCOL_VERSION) &&
+	    !launch_msg_ptr->std_out) {
+		if (!job_ptr->array_job_id) {
+			launch_msg_ptr->std_out =
+				xstrdup(DEFAULT_BATCH_STDOUT_PATH);
+		} else {
+			launch_msg_ptr->std_out =
+				xstrdup(DEFAULT_BATCH_ARRAY_STDOUT_PATH);
+		}
+	}
 
 	launch_msg_ptr->argc = job_ptr->details->argc;
 	launch_msg_ptr->argv = xduparray(job_ptr->details->argc,
@@ -5696,17 +5735,29 @@ void cleanup_completing(job_record_t *job_ptr, bool requeue)
 
 void main_sched_init(void)
 {
-	if (thread_id_sched)
-		return;
-	slurm_thread_create(&thread_id_sched, _sched_agent, NULL);
+	bool was_alive;
+
+	slurm_mutex_lock(&sched_mutex);
+	was_alive = sched_alive;
+	sched_alive = true;
+	slurm_mutex_unlock(&sched_mutex);
+
+	if (!was_alive)
+		slurm_thread_create_detached(_sched_agent, NULL);
 }
 
 void main_sched_fini(void)
 {
-	if (!thread_id_sched)
-		return;
 	slurm_mutex_lock(&sched_mutex);
-	slurm_cond_broadcast(&sched_cond);
+
+	while (sched_alive) {
+		/*
+		 * Wake up _sched_agent() if it is sleeping
+		 * before waiting for it to change state
+		 */
+		slurm_cond_broadcast(&sched_cond);
+		slurm_cond_wait(&sched_cond, &sched_mutex);
+	}
+
 	slurm_mutex_unlock(&sched_mutex);
-	slurm_thread_join(thread_id_sched);
 }

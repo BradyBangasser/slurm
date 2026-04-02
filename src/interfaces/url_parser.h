@@ -1,5 +1,5 @@
 /*****************************************************************************\
- *  url-parser.h - URL Parser plugin interface
+ *  URL Parser plugin interface
  *****************************************************************************
  *  Copyright (C) SchedMD LLC.
  *

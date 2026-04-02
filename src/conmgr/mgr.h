@@ -51,7 +51,6 @@
 #include "slurm/slurm.h"
 
 #include "src/common/pack.h"
-#include "src/common/probes.h"
 
 #include "src/conmgr/conmgr.h"
 #include "src/conmgr/events.h"
@@ -167,9 +166,8 @@ typedef enum {
  */
 extern char *con_flags_string(const con_flags_t flags);
 
-#define MAGIC_CON_MGR_FD_REF 0xA2F4B4EF
-
 typedef struct conmgr_fd_ref_s {
+#define MAGIC_CON_MGR_FD_REF 0xA2F4B4EF
 	int magic; /* MAGIC_CON_MGR_FD_REF */
 	conmgr_fd_t *con;
 } conmgr_fd_ref_t;
@@ -468,12 +466,6 @@ extern void *watch_thread(void *arg);
 extern void wait_for_watch(void);
 
 /*
- * True if connection count is >= max connection count.
- * NOTE: Caller must hold mgr->mutex lock
- */
-extern bool mgr_is_accept_deferred(void);
-
-/*
  * Stop reading from connection but write out the remaining buffer and finish
  * any queued work
  */
@@ -571,8 +563,7 @@ extern int add_connection(conmgr_con_type_t type,
 
 extern void close_all_connections(void);
 
-extern int on_rpc_connection_data(conmgr_callback_args_t conmgr_args,
-				  void *arg);
+extern int on_rpc_connection_data(conmgr_fd_t *con, void *arg);
 
 /*
  * Find connection by a given file descriptor
@@ -632,7 +623,7 @@ extern void on_extract(conmgr_callback_args_t conmgr_args, void *arg);
  * Create new connection reference
  * WARNING: caller must hold mgr.mutex
  */
-extern void fd_new_ref(conmgr_fd_t *src, conmgr_fd_ref_t **dst_ptr);
+extern conmgr_fd_ref_t *fd_new_ref(conmgr_fd_t *con);
 
 /*
  * Release and free connection reference
@@ -659,10 +650,10 @@ extern void handle_connection(bool locked, conmgr_fd_t *con);
 extern void queue_on_connection(conmgr_fd_t *con);
 
 /*
- * Probe all connections to info()
- * NOTE: caller must not hold conmgr global lock
+ * Log all connections to info()
+ * NOTE: caller must hold conmgr global lock
  */
-extern probe_status_t probe_connections(probe_log_t *log);
+extern void conmgr_log_connections(void);
 
 /* Min buffer size to call printf_work() */
 #define PRINTF_WORK_CHARS 512
@@ -680,9 +671,15 @@ extern size_t printf_work(const work_t *work, char *buffer, size_t len,
 			  bool include_connection);
 
 /*
- * Probe all work
- * NOTE: caller must not hold conmgr global lock
+ * Log mgr.work and mgr.delayed_work to info()
+ * NOTE: caller must hold conmgr global lock
  */
-extern probe_status_t probe_work(probe_log_t *log);
+extern void conmgr_log_work(void);
+
+/*
+ * Log mgr.workers to info()
+ * NOTE: caller must hold conmgr global lock
+ */
+extern void conmgr_log_workers(void);
 
 #endif /* _CONMGR_MGR_H */

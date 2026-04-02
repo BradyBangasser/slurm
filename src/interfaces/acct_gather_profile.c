@@ -1,5 +1,6 @@
 /*****************************************************************************\
- *  acct_gather_profile.c - job profile accounting plugin definitions
+ *  slurm_acct_gather_profile.c - implementation-independent job profile
+ *  accounting plugin definitions
  *****************************************************************************
  *  Copyright (C) 2013 Bull S. A. S.
  *		Bull, Rue Jean Jaures, B.P.68, 78340, Les Clayes-sous-Bois.
@@ -136,8 +137,7 @@ static void _set_freq(int type, char *freq, char *freq_def)
 
 static void *_timer_thread(void *args)
 {
-	time_t now;
-	int i, diff;
+	int i, now, diff;
 	struct timeval tvnow;
 	struct timespec abs;
 

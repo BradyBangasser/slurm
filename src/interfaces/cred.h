@@ -1,5 +1,5 @@
 /*****************************************************************************\
- *  cred.h - Slurm job and sbcast credential functions
+ *  src/interfaces/cred.h - Slurm job and sbcast credential functions
  *****************************************************************************
  *  Copyright (C) 2002-2007 The Regents of the University of California.
  *  Copyright (C) 2008-2010 Lawrence Livermore National Security.
@@ -118,7 +118,6 @@ typedef struct {
 	uint16_t job_oversubscribe;	/* shared/oversubscribe status */
 	list_t *job_gres_list;		/* Generic resources allocated to JOB */
 	char *job_partition;		/* partition */
-	char *job_qos;
 	char *job_reservation;		/* Reservation, if applicable */
 	uint16_t job_restart_cnt;	/* restart count */
 	char *job_selinux_context;

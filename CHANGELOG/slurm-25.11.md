@@ -1,3 +1,152 @@
+## Changes in 25.11.4
+
+* slurmrestd - Remove ExecReload from unit file since the daemon does not handle SIGHUP (reload would terminate the process).
+* Prevent "period_start should already be set" errors when purging slurmdbd data and fix file names for archives of purged slurmdbd data.
+* Skip x11 shutdown when x11 functionality was not requested.
+* Fix build errors with recent versions of libcurl (8.16+).
+* Fix scrun segfault with step_mgr and if environment is set.
+* Fix two memory leaks located in the job info struct.
+* Fix sacct not accepting -R flag.
+* switch/nvidia_imex - Fix parsing of --network=unique-channel-per-segment option.
+* topology/block - Fix parsing of --network=unique-channel-per-segment option.
+* Fix compile errors building against glibc-2.43
+* Prevent potential race that could cause process/script completion to go undetected. In the case of prolog/epilog, this would leave jobs stuck in CG state on nodes running many concurrent jobs. In the case of --get-user-env, it may time out resulting in jobs being requeued and held.
+* switch/nvidia_imex - fix use-after-free when switch plugin debug logging is enabled.
+* Fix bad umask() if switch/nvidia_imex fails to initialize.
+* switch/nvidia_imex - fix memory leak if imex_dev_major is set.
+* switch/nvidia_imex - fix potential memory leaks when unpacking the jobinfo structure.
+* switch/nvidia_imex - prevent job from starting when imex channel allocation fails.
+* When bf_continue is set, prevent backfill from potentially ending its cycle early due to the reason "System state changed" because of a node state change.
+* Fix underflow in GRES selection when RestrictedCoresPerGPU is configured and the job is exclusive.
+* Fix race on reconfigure that caused slurmctld to crash.
+* Docs - Update the version constraints for libjwt to reflect the fact that only 1.x may be used with Slurm.
+* Fix case when using sacctmgr where user assoc failed to be removed when removing an account with parent specified.
+* cgroup/v2 - Fix issue which caused memory.peak to be inconsistently used.
+* Prevent flex reservations from taking nodes from other reservations if those reservations do not request full nodes.
+* Fix slurmctld crash situation with srun --overcommit.
+* Adding log message to notify user of queries which are too large
+
+## Changes in 25.11.3
+
+* Fix regression from af2c0bd which caused usercpu and systemcpu to be missing for job steps.
+* Fixed issue where RestrictedCoresPerGPU with shared gres are limited to using restricted cores on one job per sharing gres.
+* slurmd - Fix regression that could cause thread limits to not be enforced for handling incoming RPCs.
+* Fix "sacctmgr show conf" to properly display CommitDelay in seconds instead of as a boolean.
+* Fix cron/requeued jobs being incorrectly reported as runaway
+* slurmctld - Prevent the double-removal of accounting usage for jobs being requeued that are in the COMPLETED or COMPLETING state.
+* When deleting a QOS from the DB, also remove it from partition QOS, AllowQOS and DenyQOS fields.
+* Fixed bug that could cause the detected CPU count to be lower than actual available CPU count. This bug could have resulted in the default value for conmgr_threads being lower than the number of available CPUs in sackd, scrun, slurmctld, slurmscriptd, slurmd, slurmstepd, slurmdbd, and slurmrestd when the assigned CPUs are not sequential.
+* slurmdbd - Prevent the following slurmdbd.conf options from overriding the default values of any in the list not specified: AllowNoDefAcct, AllResourcesAbsolute, DisableCoordDBD, DisableArchiveCommands.
+* salloc/sbatch - Nesting a non-stepmgr salloc or sbatch inside an existing job allocation that enabled the stepmgr will no longer result in the inner job’s steps failing to launch.
+* Prevent slurmd -G from initializing sack processing thread.
+* Added SLURM_CLUSTER_NAME, SLURM_JOB_ACCOUNT and SLURM_JOB_GROUP environment variables when a step is launched.
+* slurmctld - Prevent marking external nodes as being unresponsive when reconfiguring if SlurmctldParameters=enable_configless is used.
+* Fix potential segfault when attempting to look up the controller address via DNS in configless mode.
+* Fix "undefined symbol: gpu_common_underscorify_tolower" when gpu/nrt plugin in use.
+* slurmrestd - Avoid memory leak on authentication failures with invalid bearer tokens.
+* Fix potential deadlock in _x11_signal_handler() during stepd_cleanup().
+* slurmctld - Fix reservations AllowedPartitions logic leading to incorrect purge of valid reservations in some use-cases.
+* slurmcltd - Avoid persistent connections hangs when enable_async_reply is configured.
+* Prevent potential controller segfault when reconfiguring after gres file updates.
+* Reparent slurmd to a subcgroup to avoid conflicting with systemd.
+* Fix sprio regression not handling comma separated list of jobids.
+* slurmctld,slurmd - Fix memory leak when container ID is populated.
+* slurmd - Fix P-core detection on processors with varying P-core frequencies and in cpuset-restricted environments.
+* namespace/linux - add disable_bpf_token option.
+* slurmctld - Avoid expedited requeue triggering a job to requeue when job exit code was zero.
+* slurmctld - Avoid expedited requeue of jobs while waiting for job epilog script to complete.
+* slurmctld - Prevent removing cloud nodes from the topology when putting them in the POWERED_DOWN state if they are present in topology.conf or topology.yaml and their node configuration did not specify the Topology option.
+* interfaces/topology - When modifying a nodes topology with the Topology option in slurm.conf or the slurmd --conf Topology, change the topology to fully match the new topology.
+* slurmctld - Allow changes to topology.conf or topology.yaml, and slurm.conf node configuration Topology option to take effect on a reconfigure or restart when power saving is enabled.
+* slurmctld - Prevent backfill from combining future timeslots if they have different license reservations.
+* Fix CLOUD nodes infrequently becoming FUTURE on slurmctld restart.
+* slurmdbd - Avoid race condition that could cause a hang during shutdown when incoming connection fails.
+* slurmdbd - Avoid crash during shutdown due to `sacctmgr shutdown` request.
+* Fix slurmctld assertion when using "enable_async_reply" and certmgr is used for a TLS enabled cluster.
+* Fix potential slurmd process leak when handling --get-user-env.
+* slurmcltd - Avoid race condition that could cause the StateSaveLocation updates to be missed during shutdown.
+* slurmcltd - Avoid race condition that could cause slurmctld to hang during shutdown before updating StateSaveLocation.
+* slurmctld - Avoid race condition that could cause shutdown to wait on the wrong thread.
+* Fix handling of 0 node test allocations in topology/block.
+* slurmctld - In backfill, prevent unnecessarily testing jobs at future times using the select plugin if it is guaranteed to fail.
+
+## Changes in 25.11.2
+
+* slurmstepd - Revert regression that would apply job environment to container runtime invocation.
+* Fix issue where reservations may start while required GRES resources are still being used by jobs.
+* Fix slurmctld segfault when using --consolidate-segments.
+* Expose slurm.CONSOLIDATE_SEGMENTS flag in lua.
+* Expose the job record's segment_size in lua.
+* job_submit/lua - Expose the job_desc's segment_size in lua.
+* Prevent PMIx 5.0.8 and 5.0.9 clients from hanging when connecting to the PMIx server.
+* Clarify warning when BPF tokens are not supported.
+* slurmctld - Ensure we close already accepted conn before RPC flush check
+* slurmctld - Fix rpc_queue feature causing statesave corruption while shutdown
+* slurmctld - Ensure backfill has finished before saving state.
+* slurmctld - Ensure main scheduler has finished before saving state.
+* slurmctld - Fix error message while shutting down and state cannot be saved.
+* Fix slurmctld double free that occurs when purging array jobs from memory only when using the topology/block plugin.
+* Fix steps being rejected inside a batch job when using --cpus-per-task and --mem-per-cpu, and the job was submitted to multiple partitions, but not all of them had the same MaxMemPerCPU limit in place.
+* slurmctld - Fix crash after failed reconfiguration while running jobs and priority/multifactor enabled.
+* slurmctld - Fix jobs' QOS/association usage leading to potential underflow errors after a failed reconfiguration attempt.
+* Guess NodeName with gethostname instead of gethostname_short
+* Fix allowing job submissions when EnforcePartLimits=NO and the requested minimum number of nodes exceeds the total nodes in the specified partition(s).
+* Fix double unlock issue in _slurm_rpc_job_sbcast_cred()
+* srun - fix bug where some input/output/error filename format identifiers were not expanded.
+* Fix detecting restricted cores with SlurmdSpecOverride in nodes with more than one socket.
+* slurmctld/slurmdbd - Prevent segfaulting if a persistent connection closes right before reconfiguring or shutting down.
+* Fix average calculation in latency timers to show more accurate timing logs.
+
+## Changes in 25.11.1
+
+* data_parser/v0.0.41 - Prevent memory leaks when freeing parsed lists.
+* data_parser/v0.0.42 - Prevent memory leaks when freeing parsed lists.
+* data_parser/v0.0.43 - Prevent memory leaks when freeing parsed lists.
+* data_parser/v0.0.44 - Prevent memory leaks when freeing parsed lists.
+* slurmctld - Prevent a fatal when min_exempt_priority is not the last option listed in PreemptParameters.
+* Updating a job's qos will always replace the previous timelimit with the new qos' timelimit, unless another time limit is explicitly specified in the update command.
+* When debugflags=script is set in slurm.conf, Lua runtime error message will be logged with backtrace.
+* slurmctld - Prevent memory corruption when fanning out messages to the slurmds if TreeWidth is more then or equal to 46341 and the number of nodes in the cluster is more then or equal to (TreeWidth + 1).
+* When GrpTRES and MaxTRESPU are set on different QOSes and both QOSes are applied to a job, ensure that both limits are honored.
+* Fix issue where a cli command or process could get stuck indefinitely when trying to retrieve a slurm.conf from slurmctld.
+* Fix slurmctld potential deadlock when trying to schedule jobs starting many years in the future. Slurm only supports one year time limits.
+* Fix pam_slurm_adopt when using namespace/linux plugin.
+* topology/tree - Prevent overflow error when calculating fanout depth.
+* The state string for nodes in the MIXED+FAIL state will now appear as "FAILING" rather than just "FAIL", similar to what is already done for nodes in the ALLOCATED+FAIL state.
+* slurmctld - Prevent a divide by zero crash by fataling if the following SlurmctldParameters have a value of less than or equal to 0: rl_table_size, rl_bucket_size, rl_refill_rate, and rl_refill_period.
+* Fix missing updates to reservation TRES and accounting when node(s) replaced due to REPLACE or REPLACE_DOWN flags.
+* slurmctld - Cancel interactive job if prolog RPC never reaches its receiver.
+* slurmctld - Cancel interactive jobs that never ran the prolog in the purge jobs logic.
+* Fix accounting for memory on steps without pids, like the extern step, which caused them to be killed if OvermemoryKill was set.
+* NO_NORMAL_ALL will only be printed if all NO_NORMAL_* flags are set.
+* slurmctld - Prevent the controller from believing it has a job's federation cluster lock when it does not.
+* Fix jobs incorrectly stuck waiting for resources when launched with specific client flag combinations containing "--hint=nomultithread".
+* Fix allocated licenses still showing after removing all allocated licenses.
+* accounting_storage/mysql - Disallow creating users if requested user list is empty or usernames are empty strings.
+* slurmrestd - Revert tagging `.script` field as deprecated in 'POST /slurm/v0.0.42/job/submit'.
+* slurmrestd - Revert tagging `.script` field as deprecated in 'POST /slurm/v0.0.43/job/submit'.
+* slurmrestd - Revert tagging `.script` field as deprecated in 'POST /slurm/v0.0.44/job/submit'.
+* slurmrestd - Revert regression that changed the error from "Authentication failure" to "Authentication does not apply to request" when a HTTP request lacks any authentication credentials.
+* When a job requests multiple partitions and cannot run in one of them due to topology, allow the main scheduler to evaluate jobs in the other requested partitions.
+* slurmctld - Acquire the node write lock instead of the node read lock when querying 'GET /metrics/nodes' and 'GET /metrics/partitions' endpoints.
+* slurmctld - Fixed segfault when running configless and a malformed REQUEST_CONFIG RPC is received.
+* Remove error output for missing optional spank plugin.
+* slurmctld - when unable to schedule a job with preferred node features, don't exclude the partition from further scheduling attempts in the same iteration.
+* Fix issue with RestrictedCoresPerGPU with shared gres.
+* Fix rpmbuild --with libcurl option.
+* Add new JobAcctGatherParams=no_file_cache to change how memory usage (RSS) is reported when using cgroup/v2. With this flag set we will subtract active_file and inactive_file from the value reported in memory.current to avoid counting the file cache. memory.peak will then not be used to get the MaxRSS and getting memory spikes will depend on the JobAcctGatherFrequency parameter.
+* namespace/linux - fix bug that could leave defunct processes in the jobs namespace.
+* namespace/linux - kill and reap the namespace process during job teardown.
+* namespace/linux - Fix issue with user_ns_script that may result in STDIN closing, which may result in 'Unable to receive "ok ack"' error on slurmstepd or other undefined behavior.
+* Fix error reading /proc/0/* when calling the api outside the step namespace.
+* slurmctld - Fixed segfault when using newly added remote licenses.
+* Fix SIGCHLD not being sent to tasks.
+* bitmap2node_name() is not cleaned up properly when reservation logging is enabled.
+* Fix issue with jobs running on slurmd's with version 25.05.x or older getting aborted when slurmd re-registers with slurmctld.
+* Fix memory leak on slurmctld for jobs that use --exclusive=topo
+* Prevent jobs that cannot fit in the reservation's time limit from being attracted to a magnetic reservation.
+* Fix slurmstepd segfault for older versioned batch jobs (25.05 and older) submitted without using -o/--output on submission.
+
 ## Changes in 25.11.0
 
 * namespace/linux - move directory creation for bind mounts to before the init script is called.
@@ -286,3 +435,4 @@
 * Add support for database password rotation in slurmdbd through new StoragePassScript option.
 * Add support for database password rotation for jobcomp/mysql through new JobCompPassScript option.
 * Add interactive_step_set_cpu_freq parameter to the list of LaunchParameters in slurm.conf. This allows for the default cpu freq governor to be set on interactive steps.
+* Removed testsuite from the release branch. The testsuite is available on master, and can be used against different releases now.

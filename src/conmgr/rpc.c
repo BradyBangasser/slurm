@@ -49,6 +49,7 @@
 
 #include "src/conmgr/conmgr.h"
 #include "src/conmgr/mgr.h"
+#include "src/conmgr/tls.h"
 
 static int _try_parse_rpc(conmgr_fd_t *con, slurm_msg_t **msg_ptr)
 {
@@ -153,6 +154,9 @@ static int _try_parse_rpc(conmgr_fd_t *con, slurm_msg_t **msg_ptr)
 			set_buf_offset(msg->buffer, size_buf(rpc));
 		}
 
+		if (con->tls)
+			msg->conn_is_mtls = tls_is_client_authenticated(con);
+
 		/* notify conmgr we processed some data successfully */
 		set_buf_offset(con->in, need);
 	}
@@ -164,10 +168,9 @@ static int _try_parse_rpc(conmgr_fd_t *con, slurm_msg_t **msg_ptr)
 	return rc;
 }
 
-extern int on_rpc_connection_data(conmgr_callback_args_t conmgr_args, void *arg)
+extern int on_rpc_connection_data(conmgr_fd_t *con, void *arg)
 {
 	int rc;
-	conmgr_fd_t *con = conmgr_args.con;
 	slurm_msg_t *msg = NULL;
 
 	rc = _try_parse_rpc(con, &msg);
@@ -187,7 +190,7 @@ extern int on_rpc_connection_data(conmgr_callback_args_t conmgr_args, void *arg)
 		 __func__, con->name, rpc_num2string(msg->msg_type),
 		 (uintptr_t) con->events->on_msg, rc, slurm_strerror(rc),
 		 (uintptr_t) con->arg);
-	rc = con->events->on_msg(conmgr_args, msg, rc, con->arg);
+	rc = con->events->on_msg(con, msg, rc, con->arg);
 	log_flag(CONMGR, "%s: [%s] RPC END func=0x%"PRIxPTR" arg=0x%"PRIxPTR" rc=%s",
 		 __func__, con->name,
 		 (uintptr_t) con->events->on_msg,

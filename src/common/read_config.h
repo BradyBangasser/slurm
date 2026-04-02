@@ -78,6 +78,8 @@ typedef struct node_record node_record_t;
 #define DEFAULT_AUTH_TYPE          "auth/munge"
 #define DEFAULT_AUTH_TOKEN_LIFESPAN 1800
 #define DEFAULT_BATCH_START_TIMEOUT 10
+#define DEFAULT_BATCH_STDOUT_PATH "slurm-%j.out"
+#define DEFAULT_BATCH_ARRAY_STDOUT_PATH "slurm-%A_%a.out"
 #define DEFAULT_BCAST_EXCLUDE       "/lib,/usr/lib,/lib64,/usr/lib64"
 #define DEFAULT_COMPLETE_WAIT       0
 #define DEFAULT_CERTGEN_TYPE "certgen/script"
@@ -192,7 +194,6 @@ typedef struct slurm_conf_node {
 	char *reason;
 	uint16_t res_cores_per_gpu; /* number of cores per GPU to allow
 				     * to only GPU jobs */
-  uint64_t res_mem_per_gpu; /* amount of memory per GPU to allow */
 	char *state;
 	uint32_t tmp_disk;	/* MB total storage in TMP_FS file system */
 	char *topology_str; /* topology address string */
@@ -315,7 +316,7 @@ extern int job_defaults_unpack(void **out, uint16_t protocol_version,
 			       buf_t *buffer);
 
 /*
- * set_nodes_alias() for each node in alias_list
+ * slurm_reset_alias() for each node in alias_list
  *
  * IN alias_list - string with sets of node name, communication address in []
  * 	and hostname. Each element in the set if colon separated and

@@ -493,17 +493,21 @@ extern int load_all_node_state ( bool state_only )
 				node_ptr->node_state =
 					node_state | NODE_STATE_CLOUD;
 
-				/* Preserve dynamic topology for cloud nodes */
-				if (node_state_rec->topology_str) {
+				/*
+				 * Preserve dynamic topology for cloud nodes.
+				 * If the node is powered down then keep topo
+				 * as configured by current config files to stop
+				 * old slurm.conf node topology from persisting.
+				 * Ignore topology_orig_str for similar reason
+				 * for topology.conf config.
+				 */
+				if (node_state_rec->topology_str &&
+				    !IS_NODE_POWERING_DOWN(node_ptr) &&
+				    !IS_NODE_POWERED_DOWN(node_ptr)) {
 					xfree(node_ptr->topology_str);
 					node_ptr->topology_str =
 						node_state_rec->topology_str;
 					node_state_rec->topology_str = NULL;
-
-					xfree(node_ptr->topology_orig_str);
-					node_ptr->topology_orig_str =
-						node_state_rec->topology_orig_str;
-					node_state_rec->topology_orig_str = NULL;
 				}
 
 			} else if (IS_NODE_UNKNOWN(node_ptr)) {
@@ -711,13 +715,25 @@ extern int load_all_node_state ( bool state_only )
 			xfree(node_ptr->mcs_label);
 			node_ptr->mcs_label = node_state_rec->mcs_label;
 			node_state_rec->mcs_label = NULL;
-			xfree(node_ptr->topology_str);
-			node_ptr->topology_str = node_state_rec->topology_str;
-			node_state_rec->topology_str = NULL;
-			xfree(node_ptr->topology_orig_str);
-			node_ptr->topology_orig_str =
-				node_state_rec->topology_orig_str;
-			node_state_rec->topology_orig_str = NULL;
+
+			/*
+			 * Preserve dynamic topology.
+			 * If the node is powered down then keep topo
+			 * as configured by current config files to stop
+			 * old slurm.conf node topology from persisting.
+			 * This is required even on state_only=false to prevent
+			 * nodes from being completely removed from the topology
+			 * if topo is removed from slurm.conf but exists in
+			 * topology.conf before restart.
+			 */
+			if (node_state_rec->topology_str &&
+			    !IS_NODE_POWERING_DOWN(node_ptr) &&
+			    !IS_NODE_POWERED_DOWN(node_ptr)) {
+				xfree(node_ptr->topology_str);
+				node_ptr->topology_str =
+					node_state_rec->topology_str;
+				node_state_rec->topology_str = NULL;
+			}
 		}
 
 		if (node_ptr) {
@@ -891,36 +907,6 @@ static void _free_pack_node_info_members(pack_node_info_t *pack_info)
 	xfree(pack_info->visible_parts);
 }
 
-static bool _determine_if_node_is_hidden(
-	node_record_t *node_ptr,
-	pack_node_info_t *pack_info,
-	uint16_t show_flags,
-	bool privileged)
-{
-	if (!node_ptr)
-		return true;
-
-	xassert(node_ptr->magic == NODE_MAGIC);
-	xassert(node_ptr->config_ptr->magic == CONFIG_MAGIC);
-
-	/*
-	 * We can't avoid packing node records without breaking
-	 * the node index pointers. So pack a node with a name
-	 * of NULL and let the caller deal with it.
-	 */
-	if (!(show_flags & SHOW_ALL) &&
-	    !privileged &&
-	    (_node_is_hidden(node_ptr, pack_info)))
-		return true;
-	else if (IS_NODE_FUTURE(node_ptr) &&
-		 (!(show_flags & SHOW_FUTURE)))
-		return true;
-	else if (!node_ptr->name || (node_ptr->name[0] == '\0'))
-		return true;
-
-	return false;
-}
-
 /*
  * pack_all_nodes - dump all configuration and node information for all nodes
  *	in machine independent form (for network transmission)
@@ -938,7 +924,12 @@ extern buf_t *pack_all_nodes(uint16_t show_flags, uid_t uid,
 	uint32_t nodes_packed, tmp_offset;
 	buf_t *buffer;
 	time_t now = time(NULL);
-	bool privileged = validate_operator(uid);
+	node_record_t *node_ptr;
+	bool hidden, privileged = validate_operator(uid);
+	static config_record_t blank_config = {0};
+	static node_record_t blank_node = {
+		.config_ptr = &blank_config,
+	};
 	pack_node_info_t pack_info = {
 		.uid = uid,
 		.visible_parts = build_visible_parts(uid, privileged)
@@ -950,7 +941,7 @@ extern buf_t *pack_all_nodes(uint16_t show_flags, uid_t uid,
 	buffer = init_buf(BUF_SIZE * 16);
 	nodes_packed = 0;
 
-	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+	if (protocol_version >= SLURM_24_11_PROTOCOL_VERSION) {
 		bitstr_t *hidden_nodes = bit_alloc(node_record_count);
 		uint32_t pack_bitmap_offset;
 		bool repack_hidden = false;
@@ -963,16 +954,35 @@ extern buf_t *pack_all_nodes(uint16_t show_flags, uid_t uid,
 
 		/* write node records */
 		for (inx = 0; inx < node_record_count; inx++) {
-			if (_determine_if_node_is_hidden(
-				    node_record_table_ptr[inx],
-				    &pack_info,
-				    show_flags,
-				    privileged)) {
+			if (!node_record_table_ptr[inx])
+				goto pack_empty_SLURM_24_11_PROTOCOL_VERSION;
+			node_ptr = node_record_table_ptr[inx];
+			xassert(node_ptr->magic == NODE_MAGIC);
+			xassert(node_ptr->config_ptr->magic == CONFIG_MAGIC);
+
+			/*
+			 * We can't avoid packing node records without breaking
+			 * the node index pointers. So pack a node with a name
+			 * of NULL and let the caller deal with it.
+			 */
+			hidden = false;
+			if (((show_flags & SHOW_ALL) == 0) &&
+			    !privileged &&
+			    (_node_is_hidden(node_ptr, &pack_info)))
+				hidden = true;
+			else if (IS_NODE_FUTURE(node_ptr) &&
+				 (!(show_flags & SHOW_FUTURE)))
+				hidden = true;
+			else if ((node_ptr->name == NULL) ||
+				 (node_ptr->name[0] == '\0'))
+				hidden = true;
+
+			if (hidden) {
+pack_empty_SLURM_24_11_PROTOCOL_VERSION:
 				bit_set(hidden_nodes, inx);
 				repack_hidden = true;
 			} else {
-				_pack_node(node_record_table_ptr[inx],
-					   buffer, protocol_version,
+				_pack_node(node_ptr, buffer, protocol_version,
 					   show_flags);
 			}
 			nodes_packed++;
@@ -985,6 +995,46 @@ extern buf_t *pack_all_nodes(uint16_t show_flags, uid_t uid,
 			set_buf_offset(buffer, tmp_offset);
 		}
 		FREE_NULL_BITMAP(hidden_nodes);
+	} else if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+		/* write header: count and time */
+		pack32(nodes_packed, buffer);
+		pack_time(now, buffer);
+
+		/* write node records */
+		for (inx = 0; inx < node_record_count; inx++) {
+			if (!node_record_table_ptr[inx])
+				goto pack_empty;
+			node_ptr = node_record_table_ptr[inx];
+			xassert(node_ptr->magic == NODE_MAGIC);
+			xassert(node_ptr->config_ptr->magic == CONFIG_MAGIC);
+
+			/*
+			 * We can't avoid packing node records without breaking
+			 * the node index pointers. So pack a node with a name
+			 * of NULL and let the caller deal with it.
+			 */
+			hidden = false;
+			if (((show_flags & SHOW_ALL) == 0) &&
+			    !privileged &&
+			    (_node_is_hidden(node_ptr, &pack_info)))
+				hidden = true;
+			else if (IS_NODE_FUTURE(node_ptr) &&
+				 (!(show_flags & SHOW_FUTURE)))
+				hidden = true;
+			else if ((node_ptr->name == NULL) ||
+				 (node_ptr->name[0] == '\0'))
+				hidden = true;
+
+			if (hidden) {
+pack_empty:
+				_pack_node(&blank_node, buffer, protocol_version,
+					   show_flags);
+			} else {
+				_pack_node(node_ptr, buffer, protocol_version,
+					   show_flags);
+			}
+			nodes_packed++;
+		}
 	} else {
 		error("%s: protocol_version %hu not supported",
 		      __func__, protocol_version);
@@ -1019,7 +1069,7 @@ extern buf_t *pack_one_node(uint16_t show_flags, uid_t uid, char *node_name,
 	buf_t *buffer;
 	time_t now = time(NULL);
 	node_record_t *node_ptr;
-	bool privileged = validate_operator(uid);
+	bool hidden, privileged = validate_operator(uid);
 	pack_node_info_t pack_info = {
 		.uid = uid,
 		.visible_parts = build_visible_parts(uid, privileged)
@@ -1031,7 +1081,7 @@ extern buf_t *pack_one_node(uint16_t show_flags, uid_t uid, char *node_name,
 	buffer = init_buf(BUF_SIZE);
 	nodes_packed = 0;
 
-	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+	if (protocol_version >= SLURM_24_11_PROTOCOL_VERSION) {
 		/* write header: count and time */
 		pack32(nodes_packed, buffer);
 		pack_time(now, buffer);
@@ -1044,11 +1094,48 @@ extern buf_t *pack_one_node(uint16_t show_flags, uid_t uid, char *node_name,
 		else
 			node_ptr = node_record_table_ptr[0];
 		if (node_ptr) {
-			if (!_determine_if_node_is_hidden(
-				    node_ptr,
-				    &pack_info,
-				    show_flags,
-				    privileged)) {
+			hidden = false;
+			if (((show_flags & SHOW_ALL) == 0) &&
+			    !privileged &&
+			    (_node_is_hidden(node_ptr, &pack_info)))
+				hidden = true;
+			else if (IS_NODE_FUTURE(node_ptr) &&
+				 (!(show_flags & SHOW_FUTURE)))
+				hidden = true;
+			else if ((node_ptr->name == NULL) ||
+				 (node_ptr->name[0] == '\0'))
+				hidden = true;
+
+			if (!hidden) {
+				_pack_node(node_ptr, buffer, protocol_version,
+					   show_flags);
+				nodes_packed++;
+			}
+		}
+	} else if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+		/* write header: count and time */
+		pack32(nodes_packed, buffer);
+		pack_time(now, buffer);
+
+		/* write node records */
+		if (node_name)
+			node_ptr = find_node_record(node_name);
+		else
+			node_ptr = node_record_table_ptr[0];
+		if (node_ptr) {
+			hidden = false;
+			if (((show_flags & SHOW_ALL) == 0) &&
+			    !privileged &&
+			    (_node_is_hidden(node_ptr, &pack_info)))
+				hidden = true;
+			else if (IS_NODE_FUTURE(node_ptr) &&
+				 (!(show_flags & SHOW_FUTURE)))
+				hidden = true;
+			else if ((node_ptr->name == NULL) ||
+				 (node_ptr->name[0] == '\0'))
+				hidden = true;
+
+			if (!hidden) {
 				_pack_node(node_ptr, buffer, protocol_version,
 					   show_flags);
 				nodes_packed++;
@@ -2592,7 +2679,15 @@ extern void reset_node_topology(node_record_t *node_ptr)
 	else
 		old_topo = node_ptr->topology_orig_str;
 
-	node_mgr_set_node_topology(node_ptr, old_topo ? old_topo : "");
+	if (!node_ptr->config_ptr->topology_str && !node_ptr->topology_str &&
+	    !node_ptr->topology_orig_str) {
+		/*
+		 * No need to reset topo if the topology was never modified to
+		 * start with. Topology is only from topology.conf|yaml.
+		 */
+	} else {
+		node_mgr_set_node_topology(node_ptr, old_topo ? old_topo : "");
+	}
 
 	if (old_topo == node_ptr->topology_orig_str) {
 		xfree(node_ptr->topology_str);
@@ -4055,7 +4150,7 @@ extern void push_reconfig_to_slurmd(void)
 	ver_args[3]->protocol_version = SLURM_MIN_PROTOCOL_VERSION;
 
 	for (int i = 0; (node_ptr = next_node(&i)); i++) {
-		if (IS_NODE_FUTURE(node_ptr))
+		if (IS_NODE_FUTURE(node_ptr) || IS_NODE_EXTERNAL(node_ptr))
 			continue;
 		if (IS_NODE_CLOUD(node_ptr) &&
 		    (IS_NODE_POWERED_DOWN(node_ptr) ||

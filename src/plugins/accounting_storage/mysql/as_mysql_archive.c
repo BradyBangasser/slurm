@@ -46,7 +46,6 @@
 #include "src/common/slurm_time.h"
 #include "src/common/slurmdbd_defs.h"
 
-#define SLURM_24_05_PROTOCOL_VERSION MAKE_SLURM_VER(41)
 #define SLURM_23_11_PROTOCOL_VERSION ((40 << 8) | 0)
 #define SLURM_23_02_PROTOCOL_VERSION ((39 << 8) | 0)
 #define SLURM_22_05_PROTOCOL_VERSION ((38 << 8) | 0)
@@ -5625,6 +5624,13 @@ static int _archive_purge_table(purge_type_t purge_type, uint32_t usage_info,
 			time_t start = 0;
 			int cnt = 0;
 
+			rc = _archive_table(purge_type, mysql_conn,
+					    cluster_name, col_name, &start,
+					    curr_end, arch_cond->archive_dir,
+					    purge_attr, sql_table, usage_info);
+			if (rc == SLURM_ERROR)
+				goto end_it;
+
 			if (purge_type == PURGE_JOB) {
 				/* Archive associated data from hash tables */
 				rc = _archive_table(PURGE_JOB_ENV,
@@ -5648,14 +5654,6 @@ static int _archive_purge_table(purge_type_t purge_type, uint32_t usage_info,
 					goto end_it;
 				cnt += rc;
 			}
-
-			rc = _archive_table(purge_type, mysql_conn,
-					    cluster_name, col_name, &start,
-					    curr_end, arch_cond->archive_dir,
-					    purge_attr, sql_table,
-					    usage_info);
-			if (rc == SLURM_ERROR)
-				goto end_it;
 
 			cnt += rc;
 

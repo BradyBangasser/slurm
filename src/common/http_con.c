@@ -688,7 +688,7 @@ static int _on_content_complete(void *arg)
 	return rc;
 }
 
-extern int _on_data(conmgr_callback_args_t conmgr_args, void *arg)
+extern int _on_data(conmgr_fd_t *con, void *arg)
 {
 	http_con_t *hcon = arg;
 	static const http_parser_callbacks_t callbacks = {
@@ -703,7 +703,7 @@ extern int _on_data(conmgr_callback_args_t conmgr_args, void *arg)
 	buf_t *buffer = NULL;
 
 	xassert(hcon->magic == MAGIC);
-	xassert(conmgr_fd_get_ref(hcon->con) == conmgr_args.con);
+	xassert(conmgr_fd_get_ref(hcon->con) == con);
 
 	if (!hcon->parser && (rc = http_parser_g_new_parse_request(
 				      conmgr_con_get_name(hcon->con),
@@ -751,7 +751,7 @@ cleanup:
 	return rc;
 }
 
-static void _on_finish(conmgr_callback_args_t conmgr_args, void *arg)
+static void _on_finish(conmgr_fd_t *con, void *arg)
 {
 	http_con_t *hcon = arg;
 	void *hcon_arg = hcon->arg;
@@ -759,7 +759,7 @@ static void _on_finish(conmgr_callback_args_t conmgr_args, void *arg)
 	const http_con_server_events_t *hcon_events = hcon->events;
 
 	xassert(hcon->magic == MAGIC);
-	xassert(conmgr_fd_get_ref(hcon->con) == conmgr_args.con);
+	xassert(conmgr_fd_get_ref(hcon->con) == con);
 
 	/*
 	 * Preserve conmgr connection reference to ensure that the connection is
@@ -785,7 +785,7 @@ static void _on_finish(conmgr_callback_args_t conmgr_args, void *arg)
 	if (hcon_events->on_close)
 		hcon_events->on_close(conmgr_con_get_name(hcon_con), hcon_arg);
 
-	CONMGR_CON_UNLINK(hcon_con);
+	conmgr_fd_free_ref(&hcon_con);
 }
 
 extern int http_con_assign_server(conmgr_fd_ref_t *con, http_con_t *hcon,
@@ -826,7 +826,8 @@ extern int http_con_assign_server(conmgr_fd_ref_t *con, http_con_t *hcon,
 	if ((rc = conmgr_con_get_events(con, &prior_events, &prior_arg)))
 		goto failed;
 
-	CONMGR_CON_LINK(con, hcon->con);
+	if (!(hcon->con = conmgr_con_link(con)))
+		goto failed;
 
 	if ((rc = conmgr_con_set_events(con, &http_events, hcon, __func__)))
 		goto failed;
@@ -835,7 +836,7 @@ extern int http_con_assign_server(conmgr_fd_ref_t *con, http_con_t *hcon,
 
 	return rc;
 failed:
-	CONMGR_CON_UNLINK(hcon->con);
+	conmgr_fd_free_ref(&hcon->con);
 	hcon->magic = ~MAGIC;
 
 	/* Attempt to revert changes */

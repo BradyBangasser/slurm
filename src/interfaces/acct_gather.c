@@ -1,5 +1,6 @@
 /*****************************************************************************\
- *  acct_gather.c - interface for acct_gather plugins
+ *  slurm_acct_gather.c - generic interface needed for some
+ *                        acct_gather plugins.
  *****************************************************************************
  *  Copyright (C) SchedMD LLC.
  *

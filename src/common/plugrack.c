@@ -345,7 +345,7 @@ plugin_handle_t plugrack_use_by_type(plugrack_t *rack, const char *full_type)
 
 		/* See if plugin is loaded. */
 		if (e->plug == PLUGIN_INVALID_HANDLE  &&
-		    (err = plugin_load_from_file(&e->plug, e->fq_path)))
+		    (err = plugin_load_from_file(&e->plug, e->fq_path, true)))
 			error("%s: %s", e->fq_path, slurm_strerror(err));
 
 		/* If load was successful, increment the reference count. */
@@ -419,7 +419,7 @@ extern int plugrack_print_mpi_plugins(plugrack_t *rack)
 		 * Support symbolic links for various pmix plugins with names
 		 * that contain version numbers without listing duplicates
 		 */
-		sep = strstr(e->fq_path, "/mpi_");
+		sep = xstrstr(e->fq_path, "/mpi_");
 		if (sep) {
 			sep += 5;
 			i = snprintf(tmp, sizeof(tmp), "%s", sep);

@@ -1878,6 +1878,7 @@ extern void slurm_free_job_info_members(job_info_t * job)
 		xfree(job->het_job_id_set);
 		xfree(job->job_size_str);
 		xfree(job->licenses);
+		xfree(job->licenses_allocated);
 		xfree(job->mail_user);
 		xfree(job->mcs_label);
 		xfree(job->mem_per_tres);
@@ -1894,6 +1895,7 @@ extern void slurm_free_job_info_members(job_info_t * job)
 		xfree(job->req_node_inx);
 		xfree(job->req_nodes);
 		xfree(job->resv_name);
+		xfree(job->resv_ports);
 		free_job_resources(&job->job_resrcs);
 		xfree(job->selinux_context);
 		xfree(job->state_desc);
@@ -1935,8 +1937,10 @@ extern void slurm_free_acct_gather_energy_req_msg(
 	}
 }
 
-extern void slurm_free_node_gres_layout(node_gres_layout_t *msg)
+extern void slurm_free_node_gres_layout(void *in)
 {
+	node_gres_layout_t *msg = in;
+
 	if (!msg)
 		return;
 
@@ -1946,8 +1950,10 @@ extern void slurm_free_node_gres_layout(node_gres_layout_t *msg)
 	xfree(msg);
 }
 
-extern void slurm_free_node_resource_layout(node_resource_layout_t *msg)
+extern void slurm_free_node_resource_layout(void *in)
 {
+	node_resource_layout_t *msg = in;
+
 	if (!msg)
 		return;
 
@@ -1957,8 +1963,10 @@ extern void slurm_free_node_resource_layout(node_resource_layout_t *msg)
 	xfree(msg);
 }
 
-extern void slurm_free_resource_layout_msg(resource_layout_msg_t *msg)
+extern void slurm_free_resource_layout_msg(void *in)
 {
+	resource_layout_msg_t *msg = in;
+
 	if (!msg)
 		return;
 
@@ -2113,6 +2121,7 @@ extern void slurm_free_job_step_create_request_msg(
 {
 	if (msg) {
 		xfree(msg->container);
+		xfree(msg->container_id);
 		xfree(msg->cpus_per_tres);
 		xfree(msg->exc_nodes);
 		xfree(msg->features);
@@ -2503,8 +2512,9 @@ extern void slurm_free_kvs_comm_set(kvs_comm_set_t *msg)
 	}
 }
 
-extern void slurm_free_will_run_response_msg(will_run_response_msg_t *msg)
+extern void slurm_free_will_run_response_msg(void *data)
 {
+	will_run_response_msg_t *msg = data;
 	if (msg) {
 		xfree(msg->cluster_name);
 		xfree(msg->job_submit_user_msg);
@@ -4616,8 +4626,9 @@ extern void slurm_free_step_complete_msg(step_complete_msg_t *msg)
 	}
 }
 
-extern void slurm_free_job_step_stat(job_step_stat_t *msg)
+extern void slurm_free_job_step_stat(void *object)
 {
+	job_step_stat_t *msg = (job_step_stat_t *)object;
 	if (msg) {
 		jobacctinfo_destroy(msg->jobacct);
 		slurm_free_job_step_pids(msg->step_pids);

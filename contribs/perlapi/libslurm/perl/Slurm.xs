@@ -1069,7 +1069,7 @@ slurm_load_reservations(slurm_t self, time_t update_time=0)
 	OUTPUT:
 		RETVAL
 
-char_xfree *
+char_free *
 slurm_create_reservation(slurm_t self, HV *res_info)
 	PREINIT:
 		resv_desc_msg_t resv_msg;

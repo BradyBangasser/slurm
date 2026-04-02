@@ -52,7 +52,6 @@
 #include "src/common/macros.h"
 #include "src/common/node_features.h"
 #include "src/common/port_mgr.h"
-#include "src/common/probes.h"
 #include "src/common/run_command.h"
 #include "src/common/setproctitle.h"
 #include "src/common/slurm_protocol_api.h"
@@ -380,7 +379,7 @@ static void _on_sigprof(conmgr_callback_args_t conmgr_args, void *arg)
 	if (conmgr_args.status == CONMGR_WORK_STATUS_CANCELLED)
 		return;
 
-	(void) probe_run(true, NULL, NULL, __func__);
+	conmgr_log_diagnostics();
 }
 
 static void _main_thread_init()
@@ -432,8 +431,6 @@ extern int main(int argc, char **argv)
 	slurm_msg_t *msg;
 	int rc = SLURM_SUCCESS;
 	bool only_mem = true;
-
-	probe_init();
 
 	_main_thread_init();
 
@@ -530,7 +527,6 @@ ending:
 	stepd_cleanup(msg, cli, rc, only_mem);
 
 	conmgr_fini();
-	probe_fini();
 	return rc;
 }
 
@@ -568,7 +564,7 @@ extern void stepd_cleanup(slurm_msg_t *msg, slurm_addr_t *cli, int rc,
 	 * the lock. The lock is needed to ensure that the privileges are not
 	 * dropped from a different thread, like X11 shutdown thread.
 	 */
-	auth_setuid_lock();
+	auth_context_lock();
 
 	if (!only_mem) {
 		/* signal the message thread to shutdown, and wait for it */
@@ -592,7 +588,7 @@ extern void stepd_cleanup(slurm_msg_t *msg, slurm_addr_t *cli, int rc,
 			      &step->step_id);
 	}
 
-	auth_setuid_unlock();
+	auth_context_unlock();
 	run_command_shutdown();
 
 	/*
@@ -846,6 +842,45 @@ static int _handle_spank_mode(int argc, char **argv)
 	return 0;
 }
 
+/* do nothing */
+static void _ns_on_sigchld(int signo) {}
+
+/*
+ * Reap all adopted processes forever
+ *
+ * If creating new PID namespaces with namespaces/linux, processes that
+ * terminate inside the new PID namespace may become children of this
+ * slurmstepd. Such processes that would normally be reaped by the original init
+ * process now need to be reaped by this slurmstepd.
+ */
+static void _reap_adopted_processes(void)
+{
+	struct sigaction sa = {
+		.sa_handler = _ns_on_sigchld,
+	};
+	sigset_t mask;
+
+	/* Unblock SIGCHLD if sigmask was inherited with it blocked */
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGCHLD);
+	pthread_sigmask(SIG_UNBLOCK, &mask, NULL);
+
+	/*
+	 * Override default ignore behavior for SIGCHLD by adding empty handler
+	 * function.
+	 */
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGCHLD, &sa, NULL);
+
+	while (true) {
+		/* Block until SIGCHLD (or any signal) is received */
+		pause();
+		/* Cleanup any terminated processes (if any) */
+		while (waitpid(-1, NULL, WNOHANG) > 0)
+			;
+	}
+}
+
 /*
  *  Process special "modes" of slurmstepd passed as cmdline arguments.
  */
@@ -869,7 +904,9 @@ static void _process_cmdline(int argc, char **argv)
 		setproctitle("%s", buf);
 		xfree(buf);
 		set_oom_adj(STEPD_OOM_ADJ);
-		(void) poll(NULL, 0, -1);
+
+		_reap_adopted_processes();
+
 		fini_setproctitle();
 		exit(0);
 	}
@@ -926,7 +963,7 @@ _got_ack_from_slurmd(int sock)
 	safe_read(sock, &ok, sizeof(int));
 	return;
 rwfail:
-	error("Unable to receive \"ok ack\" to slurmd");
+	error("Unable to receive \"ok ack\" from slurmd");
 #endif
 }
 

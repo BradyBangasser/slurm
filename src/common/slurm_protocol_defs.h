@@ -342,6 +342,8 @@ typedef struct slurm_msg {
 			 * our trust store) */
 	void *conn; /* interfaces/conn data used for sending this message and
 		     * receiving a response */
+	bool conn_is_mtls; /* True if the connection used to receive this message
+			    * used mTLS */
 
 	uint16_t msg_type; /* really a slurm_msg_type_t but needs to be
 			    * this way for packing purposes.  message type */
@@ -1572,9 +1574,9 @@ extern void slurm_free_shutdown_msg(shutdown_msg_t * msg);
 
 extern void slurm_free_job_desc_msg(job_desc_msg_t * msg);
 
-extern void slurm_free_node_gres_layout(node_gres_layout_t *msg);
-extern void slurm_free_node_resource_layout(node_resource_layout_t *msg);
-extern void slurm_free_resource_layout_msg(resource_layout_msg_t *msg);
+extern void slurm_free_node_gres_layout(void *in);
+extern void slurm_free_node_resource_layout(void *in);
+extern void slurm_free_resource_layout_msg(void *in);
 
 extern void
 slurm_free_node_registration_status_msg(slurm_node_registration_status_msg_t *
@@ -1666,14 +1668,14 @@ extern void slurm_free_partition_info_members(partition_info_t * part);
 extern void slurm_free_reservation_info_msg(reserve_info_msg_t * msg);
 extern void slurm_free_get_kvs_msg(kvs_get_msg_t *msg);
 extern void slurm_free_kvs_comm_set(kvs_comm_set_t *msg);
-extern void slurm_free_will_run_response_msg(will_run_response_msg_t *msg);
+extern void slurm_free_will_run_response_msg(void *data);
 extern void slurm_free_reserve_info_members(reserve_info_t * resv);
 extern void slurm_free_topo_info_msg(topo_info_response_msg_t *msg);
 extern void slurm_free_topo_config_msg(topo_config_response_msg_t *msg);
 extern void slurm_free_topo_request_msg(topo_info_request_msg_t *msg);
 extern void slurm_free_file_bcast_msg(file_bcast_msg_t *msg);
 extern void slurm_free_step_complete_msg(step_complete_msg_t *msg);
-extern void slurm_free_job_step_stat(job_step_stat_t *msg);
+extern void slurm_free_job_step_stat(void *object);
 extern void slurm_free_job_step_pids(void *object);
 extern void slurm_free_acct_gather_node_resp_msg(
 	acct_gather_node_resp_msg_t *msg);

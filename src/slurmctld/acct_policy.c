@@ -1067,13 +1067,17 @@ static void _adjust_limit_usage(int type, job_record_t *job_ptr,
 			assoc_ptr->usage->used_submit_jobs += job_cnt;
 			break;
 		case ACCT_POLICY_REM_SUBMIT:
-			if (assoc_ptr->usage->used_submit_jobs)
+			if (assoc_ptr->usage->used_submit_jobs >= job_cnt)
 				assoc_ptr->usage->used_submit_jobs -= job_cnt;
-			else
+			else {
 				debug2("acct_policy_remove_job_submit: "
 				       "used_submit_jobs underflow for "
-				       "account %s",
-				       assoc_ptr->acct);
+				       "account %s (%u < %u)",
+				       assoc_ptr->acct,
+				       assoc_ptr->usage->used_submit_jobs,
+				       job_cnt);
+				assoc_ptr->usage->used_submit_jobs = 0;
+			}
 			break;
 		case ACCT_POLICY_JOB_BEGIN:
 			assoc_ptr->usage->used_jobs++;
@@ -1303,28 +1307,24 @@ static bool _validate_tres_limits_for_assoc(
 	return true;
 }
 
+
 /*
  * _validate_tres_limits_for_qos - validate the tres requested against limits
- * of a QOS, as well as qos skipping any limit an admin set. If the tres limit
- * was already set, it will not be overridden even if the new limit is less
- * restrictive, this is a "first one wins" policy.
+ * of a QOS as well as qos skipping any limit an admin set
  *
- * OUT - tres_pos - if false is returned, position in array of failed limit
+ * OUT - tres_pos - if false is returned position in array of failed limit
  * IN - job_tres_array - count of various TRES requested by the job
- * IN - divisor - divide the job_tres_array TRES by this variable, 0 if none.
- *                This is typically used to normalize the value per node.
- * IN - grp_tres_array - Grp TRES limits from QOS (can be NULL)
+ * IN - divisor - divide the job_tres_array TRES by this variable, 0 if none
+ * IN - grp_tres_array - Grp TRES limits from QOS
  * IN - max_tres_array - Max/Min TRES limits from QOS
  * IN/OUT - out_grp_tres_array - Grp TRES limits QOS has imposed already,
- *                               if a new limit is found the limit is filled in
- *                               (can be NULL).
+ *                               if a new limit is found the limit is filled in.
  * IN/OUT - out_max_tres_array - Max/Min TRES limits QOS has imposed already,
  *                               if a new limit is found the limit is filled in.
- * IN - admin_set_limit_tres_array - limits that have been overridden by an
- *                                   admin.
+ * IN - acct_policy_limit_set_array - limits that have been overridden
+ *                                    by an admin
  * IN strict_checking - If a limit needs to be enforced now or not.
- * IN max_limit - true means we're enforcing upper bounds (MAX),
- *                false means lower bounds (MIN).
+ * IN max_limit - Limits are for MAX else, the limits are MIN.
  *
  * RET - True if no limit is violated, false otherwise with tres_pos
  * being set to the position of the failed limit.

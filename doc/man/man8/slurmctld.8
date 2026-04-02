@@ -1,4 +1,4 @@
-.TH slurmctld "8" "Slurm Daemon" "Slurm 26.05" "Slurm Daemon"
+.TH slurmctld "8" "Slurm Daemon" "Slurm 25.11" "Slurm Daemon"
 
 .SH "NAME"
 slurmctld \- The central management daemon of Slurm.
@@ -150,10 +150,8 @@ Test if \fBslurmctld\fR loaded successfully.
 .IP
 
 .TP
-\fBGET /readyz\fR[\fB?verbose\fR]
-Test if \fBslurmctld\fR is ready to accept incoming RPCs. Adding the
-\fBverbose\fR query parameter will result in a verbose output of each probe in
-the response.
+\fBGET /readyz\fR
+Test if \fBslurmctld\fR is ready to accept incoming RPCs.
 .IP
 
 .TP

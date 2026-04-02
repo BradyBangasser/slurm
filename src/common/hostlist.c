@@ -89,7 +89,6 @@ strong_alias(hostlist_iterator_destroy,	slurm_hostlist_iterator_destroy);
 strong_alias(hostlist_iterator_reset,	slurm_hostlist_iterator_reset);
 strong_alias(hostlist_next,		slurm_hostlist_next);
 strong_alias(hostlist_nth,		slurm_hostlist_nth);
-strong_alias(hostlist_drop, slurm_hostlist_drop);
 strong_alias(hostlist_pop,		slurm_hostlist_pop);
 strong_alias(hostlist_push,		slurm_hostlist_push);
 strong_alias(hostlist_push_host_dims,	slurm_hostlist_push_host_dims);
@@ -1539,7 +1538,7 @@ static int _parse_box_range(char *str, struct _range * *ranges,
  * returns 1 if str contained a valid number or range,
  *         0 if conversion of str to a range failed.
  */
-static int _parse_single_range(const char *str, struct _range *range, int dims)
+static int _parse_single_range(char *str, struct _range *range, int dims)
 {
 	char *p, *q;
 	char *orig = strdup(str);
@@ -1939,30 +1938,6 @@ int hostlist_push_list(hostlist_t *h1, hostlist_t *h2)
 	UNLOCK_HOSTLIST(h2);
 
 	return n;
-}
-
-extern void hostlist_drop(hostlist_t *hl)
-{
-	if (!hl) {
-		error("%s: no hostlist given", __func__);
-		return;
-	}
-
-	LOCK_HOSTLIST(hl);
-	if (hl->nhosts > 0) {
-		hostrange_t *hr = hl->hr[hl->nranges - 1];
-
-		if (hostrange_count(hr) > 0)
-			hr->hi--;
-
-		hl->nhosts--;
-
-		if (hr->singlehost || hostrange_empty(hr)) {
-			hostrange_destroy(hl->hr[--hl->nranges]);
-			hl->hr[hl->nranges] = NULL;
-		}
-	}
-	UNLOCK_HOSTLIST(hl);
 }
 
 char *hostlist_pop(hostlist_t *hl)

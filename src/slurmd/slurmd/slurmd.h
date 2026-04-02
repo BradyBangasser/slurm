@@ -185,4 +185,7 @@ extern void update_stepd_logging(bool reconfig);
  */
 extern void build_conf_buf(void);
 
+/* True if listener is quiesced */
+extern bool listener_quiesced(void);
+
 #endif /* !_SLURMD_H */

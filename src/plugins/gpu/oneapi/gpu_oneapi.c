@@ -69,7 +69,6 @@
 
 static bitstr_t	*saved_gpus;
 
-/* Required Slurm plugin symbols: */
 const char plugin_name[] = "GPU oneAPI plugin";
 const char plugin_type[] = "gpu/oneapi";
 const uint32_t plugin_version = SLURM_VERSION_NUMBER;
