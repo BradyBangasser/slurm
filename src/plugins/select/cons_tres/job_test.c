@@ -506,7 +506,6 @@ static avail_res_t *_can_job_run_on_node(job_record_t *job_ptr,
 					 resv_exc_t *resv_exc_ptr)
 {
 	uint16_t cpus = 0;
-  uint64_t used_gpus = 0;
 	uint64_t avail_mem = NO_VAL64, req_mem;
 	int cpu_alloc_size, i, rc;
 	node_record_t *node_ptr = node_record_table_ptr[node_i];
@@ -610,13 +609,52 @@ static avail_res_t *_can_job_run_on_node(job_record_t *job_ptr,
 		return NULL;
 	}
 
-  if (avail_res_array[i] && avail_res_array[i]->gres_list) {
-      used_gpus =
-          gres_select_util_get_gres_cnt(
-              avail_res_array[i]->gres_list, "gpu");
-  }
+uint64_t total_gpus = 0;
+uint64_t used_gpus = 0;
 
-  info("%d", used_gpus);
+if (node_ptr->gres_list) {
+    list_itr_t *itr = list_iterator_create(node_ptr->gres_list);
+    gres_state_t *gres;
+
+    while ((gres = list_next(itr))) {
+        if (gres->gres_name &&
+            strncmp(gres->gres_name, "gpu", 3) == 0) {
+
+            gres_node_state_t *node_gres =
+                (gres_node_state_t *)gres->gres_data;
+
+            if (node_gres) {
+                total_gpus = node_gres->gres_cnt_avail;
+                used_gpus  = node_gres->gres_cnt_alloc;
+            }
+
+            break;
+        }
+    }
+
+    list_iterator_destroy(itr);
+}
+
+/* Compute unused GPUs */
+if (total_gpus > 0) {
+    uint64_t unused_gpus =
+        (total_gpus > used_gpus) ?
+        (total_gpus - used_gpus) : 0;
+
+    uint64_t reserved_mem = unused_gpus * 40;
+
+    if (avail_mem > reserved_mem)
+        avail_mem -= reserved_mem;
+    else
+        avail_mem = 0;
+
+    info("Node %s: total=%lu used=%lu unused=%lu adjusted_mem=%lu",
+         node_ptr->name,
+         (unsigned long)total_gpus,
+         (unsigned long)used_gpus,
+         (unsigned long)unused_gpus,
+         (unsigned long)avail_mem);
+}
 
 	if (cr_type & SELECT_MEMORY) {
 		avail_mem = node_ptr->real_memory - node_ptr->mem_spec_limit;
