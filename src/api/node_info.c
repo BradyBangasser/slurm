@@ -335,6 +335,12 @@ char *slurm_sprint_node_table(node_info_t *node_ptr, int one_liner)
 		xstrcat(out, line_end);
 	}
 
+  if (node_ptr->res_mem_per_gpu) {
+		xstrfmtcat(out, "RestrictedMemoryPerGPU=%u(%s) ",
+			   node_ptr->res_mem_per_gpu, node_ptr->gpu_spec);
+		xstrcat(out, line_end);
+	}
+
 	/****** Line ******/
 	complete_state = node_state_string_complete(node_ptr->node_state);
 	xstrfmtcat(out, "State=%s ThreadsPerCore=%u TmpDisk=%u Weight=%u ",
